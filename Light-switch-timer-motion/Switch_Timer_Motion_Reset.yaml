@@ -1,0 +1,93 @@
+blueprint:
+  name: Switch Timer with Motion Reset
+  description: >
+    Automatically turn off a switch (e.g., lights, fan) when no motion is detected.
+    This blueprint requires a Timer Helper to be created separately in Home Assistant.
+    The duration of the timer is managed by the Timer Helper settings.
+  domain: automation
+  input:
+    motion_sensor:
+      name: Motion Sensor
+      description: Select the motion sensor to monitor for presence.
+      selector:
+        entity:
+          domain: binary_sensor
+          device_class: motion
+
+    switch_entity:
+      name: Switch
+      description: Select the switch to control (e.g., light or fan).
+      selector:
+        entity:
+          domain: switch
+
+    timer_entity:
+      name: Timer Helper
+      description: >
+        Select the timer helper for the countdown. Ensure you configure the duration
+        of the timer in the Timer Helper settings, as the automation will not set it automatically.
+      selector:
+        entity:
+          domain: timer
+
+trigger:
+  - platform: state
+    entity_id: !input switch_entity
+    to: "on"
+
+  - platform: state
+    entity_id: !input motion_sensor
+    to: "on"
+
+  - platform: state
+    entity_id: !input motion_sensor
+    to: "off"
+
+  - platform: state
+    entity_id: !input switch_entity
+    to: "off"
+
+action:
+  - choose:
+      - conditions:
+          - condition: state
+            entity_id: !input switch_entity
+            state: "off"
+        sequence:
+          - service: timer.cancel
+            target:
+              entity_id: !input timer_entity
+
+      - conditions:
+          - condition: state
+            entity_id: !input motion_sensor
+            state: "off"
+        sequence:
+          - service: timer.start
+            target:
+              entity_id: !input timer_entity
+
+      - conditions:
+          - condition: state
+            entity_id: !input motion_sensor
+            state: "on"
+        sequence:
+          - service: timer.cancel
+            target:
+              entity_id: !input timer_entity
+
+  - wait_for_trigger:
+      - platform: state
+        entity_id: !input timer_entity
+        to: "idle"
+    continue_on_timeout: true
+
+  - condition: state
+    entity_id: !input motion_sensor
+    state: "off"
+
+  - service: switch.turn_off
+    target:
+      entity_id: !input switch_entity
+
+mode: restart
