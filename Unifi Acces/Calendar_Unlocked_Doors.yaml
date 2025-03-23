@@ -1,1 +1,71 @@
 
+blueprint:
+  name: Unlock Door Before Event with Input Text Keyword
+  description: >
+    Unlocks a door a specified offset before an event starts if the event's title
+    contains the keyword stored in the selected input_text entity.
+    The automation only runs if the door is currently locked.
+  domain: automation
+  input:
+    calendar_entity:
+      name: Calendar Entity
+      description: Select the calendar to monitor for events.
+      selector:
+        entity:
+          domain: calendar
+    input_text_keyword:
+      name: Door Keyword Input Text
+      description: Select the input_text entity that stores the door keyword.
+      selector:
+        entity:
+          domain: input_text
+    unlock_offset:
+      name: Unlock Offset
+      description: The time offset before an event's start when the door should be unlocked.
+      default: "-00:30:00"
+      selector:
+        text: {}
+    door_lock_entity:
+      name: Door Lock Entity
+      description: The door lock to check. The automation will only unlock if this door is currently locked.
+      selector:
+        entity:
+          domain: lock
+    door_lock_rule_select:
+      name: Door Lock Rule Select Entity
+      description: The select entity that controls the door lock mode.
+      selector:
+        entity:
+          domain: select
+    notify_service:
+      name: Notification Service
+      description: The notification service to use.
+      default: "notify.mobile_app_jt_iphone_16"
+      selector:
+        text: {}
+trigger:
+  - platform: calendar
+    event: start
+    entity_id: !input calendar_entity
+    offset: !input unlock_offset
+condition:
+  - condition: state
+    entity_id: !input door_lock_entity
+    state: "locked"
+  - condition: template
+    value_template: >
+      {% set summary = trigger.calendar_event.summary | lower %}
+      {% set keyword = states(!input input_text_keyword) | lower %}
+      {{ summary.find(keyword) != -1 and 'canceled' not in summary }}
+action:
+  - service: select.select_option
+    target:
+      entity_id: !input door_lock_rule_select
+    data:
+      option: "keep_unlock"
+  - service: !input notify_service
+    data:
+      title: "Door Unlocked"
+      message: >
+        Event starting soon. Door unlocked {{ !input unlock_offset }} before event.
+mode: single
