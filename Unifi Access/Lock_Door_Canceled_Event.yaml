@@ -1,9 +1,9 @@
 blueprint:
   name: Lock Door on Canceled Event with Input Text Keyword
   description: >
-    Periodically checks the selected calendar for events whose summary contains both a cancellation keyword
-    (default "canceled") and the door keyword stored in the selected input_text entity. If both are present
-    and the door is currently unlocked, the automation locks the door and sends a notification.
+    Periodically checks the selected calendar for events whose summary contains both the cancellation keyword
+    (default "canceled") and the door keyword stored in an input_text helper.
+    If both are present and the door is currently unlocked, the automation locks the door and sends a notification.
   domain: automation
   input:
     calendar_entity:
@@ -14,19 +14,22 @@ blueprint:
           domain: calendar
     cancellation_keyword:
       name: Cancellation Keyword
-      description: The text that indicates an event is canceled.
+      description: Enter the keyword that indicates an event is canceled.
       default: "canceled"
       selector:
         text: {}
-    input_text_keyword:
+    door_keyword_input:
       name: Door Keyword Input Text
-      description: Select the input_text entity that stores the door keyword.
+      description: >
+        Select the input_text entity that stores the door keyword.
+        The current state of this helper will be checked against the event title.
+      default: "*"
       selector:
         entity:
           domain: input_text
     door_lock_entity:
       name: Door Lock Entity
-      description: The door lock to check. The automation will only lock the door if it is currently unlocked.
+      description: The door lock to check. The automation will only lock the door if it's currently unlocked.
       selector:
         entity:
           domain: lock
@@ -55,7 +58,7 @@ condition:
     value_template: >
       {% set summary = (state_attr(!input calendar_entity, 'message') | default('')) | lower %}
       {% set cancel_kw = (!input cancellation_keyword) | lower %}
-      {% set door_kw = states(!input input_text_keyword) | lower %}
+      {% set door_kw = states(!input door_keyword_input) | lower %}
       {{ summary.find(cancel_kw) != -1 and summary.find(door_kw) != -1 }}
 
 action:
