@@ -1,5 +1,5 @@
 blueprint:
-  name: Unlock Door Before Event with Input Text Keyword
+  name: Unlock Door Before Event with Input Text Keyword and Notification Device
   description: >
     Unlocks a door a specified duration before an event starts if the event's title
     contains the keyword stored in the selected input_text entity.
@@ -36,16 +36,12 @@ blueprint:
       selector:
         entity:
           domain: select
-    notify_service:
-      name: Notification Service
-      description: Select the notification service to use.
-      default: notify.mobile_app_jt_iphone_16
+    notify_device:
+      name: Notification Device
+      description: Select the mobile device to send notifications to.
       selector:
-        select:
-          options:
-            - notify.mobile_app_jt_iphone_16
-            - notify.mobile_app_my_other_device
-            # Add additional notification services here as desired.
+        device:
+          integration: mobile_app
 
 trigger:
   - platform: calendar
@@ -69,10 +65,12 @@ action:
       entity_id: !input door_lock_rule_select
     data:
       option: "keep_unlock"
-  - service: !input notify_service
+  - service: notify.notify
     data:
       title: "Door Unlocked"
       message: >
         Event starting soon. Door unlocked {{ !input unlock_offset }} before event.
+    target:
+      device_id: !input notify_device
 
 mode: single
