@@ -38,11 +38,14 @@ blueprint:
           domain: select
     notify_service:
       name: Notification Service
-      description: The notification service to use.
+      description: Select the notification service to use.
       default: notify.mobile_app_jt_iphone_16
       selector:
-        service:
-          domain: notify
+        select:
+          options:
+            - notify.mobile_app_jt_iphone_16
+            - notify.mobile_app_my_other_device
+            # Add additional notification services here as desired.
 
 trigger:
   - platform: calendar
