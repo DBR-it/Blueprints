@@ -1,0 +1,70 @@
+blueprint:
+  name: Lock Door on Canceled Event
+  description: >
+    Periodically checks the selected calendar for events marked as canceled.
+    If the current event's summary contains the cancellation keyword (default "canceled")
+    and the door is currently unlocked, the automation will lock the door and send a notification.
+  domain: automation
+  input:
+    calendar_entity:
+      name: Calendar Entity
+      description: Select the calendar to monitor for canceled events.
+      selector:
+        entity:
+          domain: calendar
+    cancellation_keyword:
+      name: Cancellation Keyword
+      description: The keyword that indicates a canceled event.
+      default: "canceled"
+      selector:
+        text: {}
+    door_lock_entity:
+      name: Door Lock Entity
+      description: The door lock to check. The automation will only lock the door if it's currently unlocked.
+      selector:
+        entity:
+          domain: lock
+    door_lock_rule_select:
+      name: Door Lock Rule Select Entity
+      description: The select entity that controls the door lock mode.
+      selector:
+        entity:
+          domain: select
+    notify_device:
+      name: Notification Device
+      description: Select the mobile device to send notifications to.
+      selector:
+        device:
+          integration: mobile_app
+
+trigger:
+  - platform: time_pattern
+    # Runs every minute
+    minutes: "/1"
+
+condition:
+  # Only proceed if the door is currently unlocked.
+  - condition: state
+    entity_id: !input door_lock_entity
+    state: "unlocked"
+  # Check if the current event's summary (stored in the calendar's 'message' attribute)
+  # contains the cancellation keyword.
+  - condition: template
+    value_template: >
+      {% set summary = (state_attr(!input calendar_entity, 'message') | default('')) | lower %}
+      {{ summary.find(!input cancellation_keyword | lower) != -1 }}
+
+action:
+  - service: select.select_option
+    target:
+      entity_id: !input door_lock_rule_select
+    data:
+      option: "reset"
+  - service: notify.notify
+    data:
+      title: "Canceled Event Detected"
+      message: "A canceled event was detected. Door is now locked."
+    target:
+      device_id: !input notify_device
+
+mode: single
