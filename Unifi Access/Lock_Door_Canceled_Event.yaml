@@ -1,9 +1,9 @@
 blueprint:
-  name: Lock Door on Canceled Event
+  name: Lock Door on Canceled Event with Input Text Keyword
   description: >
-    Periodically checks the selected calendar for events marked as canceled.
-    If the current event's summary contains the cancellation keyword (default "canceled")
-    and the door is currently unlocked, the automation will lock the door and send a notification.
+    Periodically checks the selected calendar for events whose summary contains both a cancellation keyword
+    (default "canceled") and the door keyword stored in the selected input_text entity. If both are present
+    and the door is currently unlocked, the automation locks the door and sends a notification.
   domain: automation
   input:
     calendar_entity:
@@ -14,13 +14,19 @@ blueprint:
           domain: calendar
     cancellation_keyword:
       name: Cancellation Keyword
-      description: The keyword that indicates a canceled event.
+      description: The text that indicates an event is canceled.
       default: "canceled"
       selector:
         text: {}
+    input_text_keyword:
+      name: Door Keyword Input Text
+      description: Select the input_text entity that stores the door keyword.
+      selector:
+        entity:
+          domain: input_text
     door_lock_entity:
       name: Door Lock Entity
-      description: The door lock to check. The automation will only lock the door if it's currently unlocked.
+      description: The door lock to check. The automation will only lock the door if it is currently unlocked.
       selector:
         entity:
           domain: lock
@@ -39,20 +45,18 @@ blueprint:
 
 trigger:
   - platform: time_pattern
-    # Runs every minute
     minutes: "/1"
 
 condition:
-  # Only proceed if the door is currently unlocked.
   - condition: state
     entity_id: !input door_lock_entity
     state: "unlocked"
-  # Check if the current event's summary (stored in the calendar's 'message' attribute)
-  # contains the cancellation keyword.
   - condition: template
     value_template: >
       {% set summary = (state_attr(!input calendar_entity, 'message') | default('')) | lower %}
-      {{ summary.find(!input cancellation_keyword | lower) != -1 }}
+      {% set cancel_kw = (!input cancellation_keyword) | lower %}
+      {% set door_kw = states(!input input_text_keyword) | lower %}
+      {{ summary.find(cancel_kw) != -1 and summary.find(door_kw) != -1 }}
 
 action:
   - service: select.select_option
