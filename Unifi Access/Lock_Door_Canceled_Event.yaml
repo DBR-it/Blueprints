@@ -1,8 +1,8 @@
 blueprint:
-  name: Lock Door on Canceled Event with Input Text Keyword
+  name: Lock Door on Canceled Event with Full Keyword Check
   description: >
     Periodically checks the selected calendar for events whose summary contains both the cancellation keyword
-    (default "canceled") and the door keyword stored in an input_text helper.
+    (default "canceled") and the door keyword stored in an input_text helper as full words.
     If both are present and the door is currently unlocked, the automation locks the door and sends a notification.
   domain: automation
   input:
@@ -22,7 +22,7 @@ blueprint:
       name: Door Keyword Input Text
       description: >
         Select the input_text entity that stores the door keyword.
-        The current state of this helper will be checked against the event title.
+        The current state of this helper will be checked as a full word in the event title.
       default: "*"
       selector:
         entity:
@@ -59,7 +59,8 @@ condition:
       {% set summary = (state_attr(!input calendar_entity, 'message') | default('')) | lower %}
       {% set cancel_kw = (!input cancellation_keyword) | lower %}
       {% set door_kw = states(!input door_keyword_input) | lower %}
-      {{ summary.find(cancel_kw) != -1 and summary.find(door_kw) != -1 }}
+      {# Use regex_search with word boundaries to ensure a full word match #}
+      {{ summary | regex_search('\\b' ~ cancel_kw ~ '\\b') and summary | regex_search('\\b' ~ door_kw ~ '\\b') }}
 
 action:
   - service: select.select_option
