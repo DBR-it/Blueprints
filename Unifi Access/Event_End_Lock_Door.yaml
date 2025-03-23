@@ -3,7 +3,7 @@ blueprint:
   description: >
     Locks a door a specified duration after an event ends if no overlapping event is running
     and if the door keyword stored in the selected input_text entity is present.
-    (This blueprint no longer checks for the word "canceled" in the event title.)
+    The automation only runs if the door is currently unlocked (so it doesn't re-lock a locked door).
   domain: automation
   input:
     calendar_entity:
@@ -26,7 +26,7 @@ blueprint:
           domain: input_text
     door_lock_entity:
       name: Door Lock Entity
-      description: The door lock to check. (Used for status checking.)
+      description: The door lock to check. The automation will only lock the door if it's currently unlocked.
       selector:
         entity:
           domain: lock
@@ -50,6 +50,9 @@ trigger:
     offset: !input lock_offset
 
 condition:
+  - condition: state
+    entity_id: !input door_lock_entity
+    state: "unlocked"
   - condition: template
     value_template: >
       {# Retrieve upcoming event times from the selected calendar #}
