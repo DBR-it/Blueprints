@@ -1,8 +1,8 @@
 blueprint:
-  name: Nighttime Door Safeguard with Reset Blueprint
+  name: Nightly Door Safeguard On/Off
   description: >
-    Disables the specified unlock automation at a designated disable time and locks the door by
-    resetting the door lock rule immediately, then re-enables the unlock automation at a designated enable time.
+    Disables the selected unlock automation at a specified time and immediately locks the door
+    by resetting the door lock rule, then re-enables the unlock automation at a specified time.
   domain: automation
   input:
     target_automation:
@@ -60,7 +60,7 @@ action:
               option: "reset"
           - service: notify.notify
             data:
-              title: "Nighttime Safeguard Activated"
+              title: "Nightly Door Safeguard Activated"
               message: "At {{ now().strftime('%H:%M:%S') }}, door rules reset and door locked; unlock automation disabled."
             target:
               device_id: !input notification_device
@@ -73,7 +73,7 @@ action:
               entity_id: !input target_automation
           - service: notify.notify
             data:
-              title: "Nighttime Safeguard Deactivated"
+              title: "Nightly Door Safeguard Deactivated"
               message: "At {{ now().strftime('%H:%M:%S') }}, unlock automation re-enabled."
             target:
               device_id: !input notification_device
