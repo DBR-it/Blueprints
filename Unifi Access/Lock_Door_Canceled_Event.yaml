@@ -1,14 +1,15 @@
 blueprint:
-  name: Lock Door on Canceled Event with Full Keyword Check
+  name: Lock Door on Canceled or No Active Event with Full Keyword Check
   description: >
-    Periodically checks the selected calendar for events whose summary contains both the cancellation keyword
-    (default "canceled") and the door keyword stored in an input_text helper as full words.
-    If both are present and the door is currently unlocked, the automation locks the door and sends a notification.
+    Periodically checks the selected calendar. If the door is currently unlocked and either
+    (a) an active event is present whose summary contains both the cancellation keyword (default "canceled")
+    and the door keyword (stored in an input_text helper) as full words, or (b) no active event is detected,
+    then the automation locks the door and sends a notification.
   domain: automation
   input:
     calendar_entity:
       name: Calendar Entity
-      description: Select the calendar to monitor for canceled events.
+      description: Select the calendar to monitor for events.
       selector:
         entity:
           domain: calendar
@@ -56,11 +57,22 @@ condition:
     state: "unlocked"
   - condition: template
     value_template: >
-      {% set summary = (state_attr(!input calendar_entity, 'message') | default('')) | lower %}
+      {% set start_time = state_attr(!input calendar_entity, 'start_time') %}
+      {% set end_time = state_attr(!input calendar_entity, 'end_time') %}
+      {% set now_naive = now().replace(tzinfo=None) %}
+      {% if start_time and end_time %}
+        {% set event_active = now_naive >= as_datetime(start_time).replace(tzinfo=None) and now_naive <= as_datetime(end_time).replace(tzinfo=None) %}
+      {% else %}
+        {% set event_active = false %}
+      {% endif %}
+      {% set message = (state_attr(!input calendar_entity, 'message') | default('')) | lower %}
       {% set cancel_kw = (!input cancellation_keyword) | lower %}
       {% set door_kw = states(!input door_keyword_input) | lower %}
-      {# Use regex_search with word boundaries to ensure a full word match #}
-      {{ summary | regex_search('\\b' ~ cancel_kw ~ '\\b') and summary | regex_search('\\b' ~ door_kw ~ '\\b') }}
+      {% if event_active %}
+        {{ (message | regex_search('\\b' ~ cancel_kw ~ '\\b')) and (message | regex_search('\\b' ~ door_kw ~ '\\b')) }}
+      {% else %}
+        true
+      {% endif %}
 
 action:
   - service: select.select_option
@@ -70,8 +82,8 @@ action:
       option: "reset"
   - service: notify.notify
     data:
-      title: "Canceled Event Detected"
-      message: "A canceled event was detected. Door is now locked."
+      title: "Canceled/No Event: Door Locked"
+      message: "The door has been locked because either a canceled event was detected or there is no active event."
     target:
       device_id: !input notify_device
 
