@@ -1,0 +1,92 @@
+blueprint:
+  name: Nighttime Door Safeguard with Reset Blueprint
+  description: >
+    At a specified disable time, this blueprint resets door lock rules and locks the door by
+    turning off the unlock automation, then re-enables the unlock automation at a specified enable time.
+  domain: automation
+  input:
+    target_automation:
+      name: Unlock Automation
+      description: The unlock automation to disable during the safeguard period.
+      selector:
+        entity:
+          domain: automation
+    disable_time:
+      name: Disable Time
+      description: The time at which the unlock automation should be disabled and the door should be locked.
+      default: "22:00:00"
+      selector:
+        time: {}
+    enable_time:
+      name: Enable Time
+      description: The time at which the unlock automation should be re-enabled.
+      default: "05:00:00"
+      selector:
+        time: {}
+    door_lock_rule_select:
+      name: Door Lock Rule Select Entity
+      description: The select entity that controls the door lock mode.
+      selector:
+        entity:
+          domain: select
+    notification_device:
+      name: Notification Device
+      description: Select the mobile device to send notifications to.
+      selector:
+        device:
+          integration: mobile_app
+    delay_duration:
+      name: Delay Duration
+      description: Duration to wait between resetting and applying the final lock command.
+      default: "00:00:05"
+      selector:
+        duration: {}
+
+trigger:
+  - platform: time
+    at: !input disable_time
+    id: disable_trigger
+  - platform: time
+    at: !input enable_time
+    id: enable_trigger
+
+action:
+  - choose:
+      - conditions:
+          - condition: template
+            value_template: "{{ trigger.id == 'disable_trigger' }}"
+        sequence:
+          - service: homeassistant.turn_off
+            target:
+              entity_id: !input target_automation
+          - service: select.select_option
+            target:
+              entity_id: !input door_lock_rule_select
+            data:
+              option: "reset"
+          - delay: !input delay_duration
+          - service: select.select_option
+            target:
+              entity_id: !input door_lock_rule_select
+            data:
+              option: "keep_lock"
+          - service: notify.notify
+            data:
+              title: "Nighttime Safeguard Activated"
+              message: "At {{ now().strftime('%H:%M:%S') }}, door rules reset and door locked; unlock automation disabled."
+            target:
+              device_id: !input notification_device
+      - conditions:
+          - condition: template
+            value_template: "{{ trigger.id == 'enable_trigger' }}"
+        sequence:
+          - service: homeassistant.turn_on
+            target:
+              entity_id: !input target_automation
+          - service: notify.notify
+            data:
+              title: "Nighttime Safeguard Deactivated"
+              message: "At {{ now().strftime('%H:%M:%S') }}, unlock automation re-enabled."
+            target:
+              device_id: !input notification_device
+mode: single
