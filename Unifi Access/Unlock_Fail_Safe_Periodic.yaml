@@ -1,0 +1,86 @@
+blueprint:
+  name: Periodic Door Unlock Fail-Safe
+  description: >
+    Periodically checks the selected calendar for an active event that contains the door keyword
+    (stored in an input_text helper). If such an event is active and the door (specified by the door lock entity)
+    is still locked, the blueprint sends a command to unlock the door (by setting the door lock rule to "keep_unlock")
+    and sends a notification to a selected mobile device.
+  domain: automation
+  input:
+    calendar_entity:
+      name: Calendar Entity
+      description: Select the calendar to monitor for events.
+      selector:
+        entity:
+          domain: calendar
+    input_text_keyword:
+      name: Door Keyword Input Text
+      description: >
+        Select the input_text entity that stores the door keyword.
+        The current state of this helper will be checked as a full word in the event title.
+      default: "*"
+      selector:
+        entity:
+          domain: input_text
+    door_lock_entity:
+      name: Door Lock Entity
+      description: The door lock to check. The automation will only unlock the door if it's currently locked.
+      selector:
+        entity:
+          domain: lock
+    door_lock_rule_select:
+      name: Door Lock Rule Select Entity
+      description: The select entity that controls the door lock mode.
+      selector:
+        entity:
+          domain: select
+    notify_device:
+      name: Notification Device
+      description: Select the mobile device to send notifications to.
+      selector:
+        device:
+          integration: mobile_app
+
+trigger:
+  - platform: time_pattern
+    # Runs every minute.
+    minutes: "/1"
+
+condition:
+  # First, check that the door is locked so we don't run if it's already unlocked.
+  - condition: state
+    entity_id: !input door_lock_entity
+    state: "locked"
+  # Next, check if there is an active event that contains the door keyword.
+  - condition: template
+    value_template: >
+      {% set start_time = state_attr(!input calendar_entity, 'start_time') %}
+      {% set end_time = state_attr(!input calendar_entity, 'end_time') %}
+      {% set summary = (state_attr(!input calendar_entity, 'message') | default('')) | lower %}
+      {% set door_kw = states(!input input_text_keyword) | lower %}
+      {% set now_naive = now().replace(tzinfo=None) %}
+      {# An event is active if now is between start and end (if defined) #}
+      {% if start_time and end_time %}
+        {% set event_active = now_naive >= as_datetime(start_time).replace(tzinfo=None) and now_naive <= as_datetime(end_time).replace(tzinfo=None) %}
+      {% else %}
+        {% set event_active = false %}
+      {% endif %}
+      {# Check that the active event's summary includes the door keyword as a full word #}
+      {{ event_active and (summary | regex_search('\\b' ~ door_kw ~ '\\b')) }}
+      
+action:
+  - service: select.select_option
+    target:
+      entity_id: !input door_lock_rule_select
+    data:
+      option: "keep_unlock"
+  - service: notify.notify
+    data:
+      title: "Fail-Safe: Door Unlocked"
+      message: >
+        At {{ now().strftime('%H:%M:%S') }}, an active event requiring door unlock was detected.
+        The door has been unlocked.
+    target:
+      device_id: !input notify_device
+
+mode: single
