@@ -1,5 +1,5 @@
 blueprint:
-  name: Periodic Door Unlock Fail-Safe (Unlock Only)
+  name: Periodic Door Unlock Fail-Safe (Unlock Only) with Duration Frequency
   description: >
     Periodically checks the selected calendar for an active event that contains the door keyword
     (stored in an input_text helper) and does NOT contain a cancellation keyword.
@@ -8,16 +8,14 @@ blueprint:
     and sends a notification to a selected mobile device.
   domain: automation
   input:
-    period_minutes:
-      name: Check Frequency (Minutes)
+    check_frequency:
+      name: Check Frequency
       description: >
-        How frequently (in minutes) the automation should check for an active event that requires the door to be unlocked.
-      default: 1
+        How frequently the automation should check for an active event that requires the door to be unlocked.
+        Enter the duration in HH:MM:SS format.
+      default: "00:01:00"
       selector:
-        number:
-          min: 1
-          max: 60
-          unit_of_measurement: minutes
+        duration: {}
     calendar_entity:
       name: Calendar Entity
       description: Select the calendar to monitor for events.
@@ -60,7 +58,8 @@ blueprint:
 
 trigger:
   - platform: time_pattern
-    minutes: "/{{ !input period_minutes }}"
+    # Convert the duration (HH:MM:SS) to total seconds.
+    seconds: "/{{ (((!input check_frequency).split(':')[0] | int) * 3600) + (((!input check_frequency).split(':')[1] | int) * 60) + ((!input check_frequency).split(':')[2] | int) }}"
 
 condition:
   - condition: state
