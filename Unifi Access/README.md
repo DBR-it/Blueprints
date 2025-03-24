@@ -1,6 +1,8 @@
-# Home Assistant Door Control Blueprints
+<p align="center">
+  <img src="Unifi.png" alt="Your Image Alt Text" style="width: 100%; height: auto;">
+</p>
 
-**DISCLAIMER:**  
+## ***  Disclaimer  ***
 These blueprints are provided "as is" without any warranty, express or implied. The creator of these blueprints makes no representations or warranties regarding the accuracy, reliability, or suitability of these automations for any purpose. Use these blueprints at your own risk. Under no circumstances shall the creator be held liable for any damages, losses, or adverse consequences arising from the implementation or use of these blueprints—including, without limitation, unintended door unlocks or locks. It is the responsibility of the user to test these blueprints thoroughly in a controlled environment before deploying them in production. By using these blueprints, you acknowledge that you are solely responsible for any modifications necessary to ensure safe and appropriate operation.
 
 ## Requirements
