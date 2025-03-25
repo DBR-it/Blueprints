@@ -70,7 +70,6 @@ blueprint:
 
 trigger:
   - platform: time_pattern
-    id: temp_update
     minutes: / !input check_frequency
 
 action:
