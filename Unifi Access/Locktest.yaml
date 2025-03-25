@@ -62,16 +62,18 @@ blueprint:
         device:
           integration: mobile_app
     check_frequency:
-      name: Check Frequency
-      description: How frequently the automation should run, as a duration (HH:MM:SS).
-      default: "00:05:00"
+      name: Check Frequency (Minutes)
+      description: How frequently (in minutes) the automation should run.
+      default: 5
       selector:
-        duration: {}
+        number:
+          min: 1
+          max: 60
+          unit_of_measurement: minutes
 
 trigger:
   - platform: time_pattern
-     # Convert check_frequency duration (HH:MM:SS) to total seconds for the time pattern trigger.
-    seconds: "/{{ (((!input check_frequency).split(':')[0] | int) * 3600) + (((!input check_frequency).split(':')[1] | int) * 60) + (((!input check_frequency).split(':')[2] | int)) }}"
+    minutes: "/{{ check_frequency }}"
 
 action:
   - service: calendar.get_events
