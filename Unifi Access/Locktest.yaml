@@ -61,7 +61,6 @@ blueprint:
       selector:
         device:
           integration: mobile_app
-    input:
       check_frequency:
         name: Check Frequency (Minutes)
         description: How frequently (in minutes) the automation should run.
