@@ -1,87 +1,30 @@
-blueprint:
-  name: Lock Door on Canceled or No Active Event (8 Hour Window, Multiple Events)
-  description: >
-    Periodically retrieves a list of events for the next 8 hours using the calendar.get_events service.
-    It iterates over the events to determine if any active event is valid—that is, the event is active
-    (current time is between its start and end) and its summary contains both the cancellation keyword (default "canceled")
-    and the door keyword (from an input_text helper) as full words. If no valid active event is found,
-    the automation locks the door.
-  domain: automation
-  input:
-    calendar_entity:
-      name: Calendar Entity
-      description: Select the calendar to monitor.
-      selector:
-        entity:
-          domain: calendar
-    cancellation_keyword:
-      name: Cancellation Keyword
-      description: The keyword that indicates an event is canceled.
-      default: "canceled"
-      selector:
-        text: {}
-    door_keyword_input:
-      name: Door Keyword Input Text
-      description: >
-        Select the input_text entity that stores the door keyword.
-        Its current state will be used to check each event's summary as a full word.
-      default: "*"
-      selector:
-        entity:
-          domain: input_text
-    door_lock_entity:
-      name: Door Lock Entity
-      description: The door lock to check. This automation only runs if it's currently unlocked.
-      selector:
-        entity:
-          domain: lock
-    door_lock_rule_select:
-      name: Door Lock Rule Select Entity
-      description: The select entity that controls the door lock mode (setting to "reset" locks the door).
-      selector:
-        entity:
-          domain: select
-    notify_device:
-      name: Notification Device
-      description: Select the mobile device for notifications.
-      selector:
-        device:
-          integration: mobile_app
-    check_frequency:
-      name: Check Frequency (Minutes)
-      description: How frequently (in minutes) the automation should run.
-      default: 5
-      selector:
-        number:
-          min: 1
-          max: 60
-          unit_of_measurement: minutes
-
+alias: Lock Door on Canceled or No Active Event (8 Hour Window)
+description: ""
 trigger:
   - platform: time_pattern
-    minutes: "/{{ check_frequency }}"
-
+    minutes: "/{{ input.check_frequency }}"
 action:
+  # Retrieve events for the next 8 hours and store the response in "event_list"
   - service: calendar.get_events
     target:
-      entity_id: "{{ calendar_entity }}"
+      entity_id: !input calendar_entity
     data:
       duration:
         hours: 8
         minutes: 0
         seconds: 0
     response_variable: event_list
-
+  # Only proceed if the door is currently unlocked.
   - condition: state
-    entity_id: "{{ door_lock_entity }}"
+    entity_id: !input door_lock_entity
     state: "unlocked"
-
+  # Process the event_list
   - condition: template
     value_template: >
       {% set now_naive = now().replace(tzinfo=None) %}
-      {% set cancel_kw = cancellation_keyword | lower %}
-      {% set door_kw = states(door_keyword_input) | lower %}
-      {% set cal_id = calendar_entity %}
+      {% set cancel_kw = input.cancellation_keyword | lower %}
+      {% set door_kw = states(input.door_keyword_input) | lower %}
+      {% set cal_id = input.calendar_entity %}
       {% set valid_active = false %}
       {% if event_list and event_list[cal_id] and event_list[cal_id].events %}
         {% for event in event_list[cal_id].events %}
@@ -95,18 +38,16 @@ action:
         {% endfor %}
       {% endif %}
       {{ not valid_active }}
-
+  # If no valid active event is found, lock the door.
   - service: select.select_option
     target:
-      entity_id: "{{ door_lock_rule_select }}"
+      entity_id: !input door_lock_rule_select
     data:
       option: "reset"
-
   - service: notify.notify
     data:
       title: "Lock Door: No Valid Active Event"
       message: "No valid active event detected (or all active events are canceled). Door is now locked."
     target:
-      device_id: "{{ notify_device }}"
-
+      device_id: !input notify_device
 mode: single
