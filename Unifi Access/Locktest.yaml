@@ -83,8 +83,8 @@ action:
     state: "unlocked"
 
   - condition: template
-    value_template: >
-   {% set now_naive = now().replace(tzinfo=None) %}
+    value_template: 
+{% set now_naive = now().replace(tzinfo=None) %}
 {% set upcoming_buffer_sec = (((!input upcoming_buffer).split(':')[0]|int) * 3600) + (((!input upcoming_buffer).split(':')[1]|int) * 60) + (((!input upcoming_buffer).split(':')[2]|int)) %}
 {% set past_buffer_sec = (((!input past_buffer).split(':')[0]|int) * 3600) + (((!input past_buffer).split(':')[1]|int) * 60) + (((!input past_buffer).split(':')[2]|int)) %}
 {% set cancel_kw = (!input cancellation_keyword) | lower %}
