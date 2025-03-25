@@ -66,12 +66,12 @@ blueprint:
       description: How frequently (in minutes) the automation should run.
       default: "/5"
       selector:
-        text: /
+        text: 
 
 trigger:
   - platform: time_pattern
     id: temp_update
-    minutes: !input check_frequency
+    minutes: / !input check_frequency
 
 action:
   - service: calendar.get_events
