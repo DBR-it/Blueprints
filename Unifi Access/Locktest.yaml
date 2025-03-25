@@ -1,11 +1,11 @@
 blueprint:
-  name: Lock Door on Canceled or No Active Event (8 Hour Window, Multiple Events)
+  name: Lock Door on Canceled or No Active Event (8 Hour Window, with Buffer)
   description: >
     Periodically retrieves a list of events for the next 8 hours using the calendar.get_events service.
-    It iterates over the events to determine if any active event is valid—that is, the event is active
-    (current time is between its start and end) and its summary contains both the cancellation keyword (default "canceled")
-    and the door keyword (from an input_text helper) as full words. If no valid active event is found,
-    the automation locks the door.
+    It iterates over the events to determine if any event is active—that is, if the current time is between
+    the event's start time minus the upcoming buffer and the event's end time plus the past buffer,
+    and its summary contains the door keyword (from an input_text helper) as a full word and does not contain the cancellation keyword.
+    If no such event is found, the automation locks the door.
   domain: automation
   input:
     calendar_entity:
@@ -29,6 +29,20 @@ blueprint:
       selector:
         entity:
           domain: input_text
+    upcoming_buffer:
+      name: Upcoming Buffer
+      description: >
+        Duration before an event's start during which the event is still considered active (e.g., 00:30:00 for 30 minutes).
+      default: "00:30:00"
+      selector:
+        duration: {}
+    past_buffer:
+      name: Past Buffer
+      description: >
+        Duration after an event's end during which the event is still considered active (e.g., 00:15:00 for 15 minutes).
+      default: "00:15:00"
+      selector:
+        duration: {}
     door_lock_entity:
       name: Door Lock Entity
       description: The door lock to check. This automation only runs if it's currently unlocked.
@@ -59,7 +73,7 @@ blueprint:
 
 trigger:
   - platform: time_pattern
-    minutes: !input check_frequency
+    minutes: "/{{ check_frequency }}"
 
 action:
   - service: calendar.get_events
@@ -79,6 +93,8 @@ action:
   - condition: template
     value_template: >
       {% set now_naive = now().replace(tzinfo=None) %}
+      {% set upcoming_buffer_sec = (upcoming_buffer.split(':')[0]|int * 3600) + (upcoming_buffer.split(':')[1]|int * 60) + (upcoming_buffer.split(':')[2]|int) %}
+      {% set past_buffer_sec = (past_buffer.split(':')[0]|int * 3600) + (past_buffer.split(':')[1]|int * 60) + (past_buffer.split(':')[2]|int) %}
       {% set cancel_kw = cancellation_keyword | lower %}
       {% set door_kw = states(door_keyword_input) | lower %}
       {% set cal_id = calendar_entity %}
@@ -87,7 +103,9 @@ action:
         {% for event in event_list[cal_id].events %}
           {% set event_start = as_datetime(event.start).replace(tzinfo=None) %}
           {% set event_end = as_datetime(event.end).replace(tzinfo=None) %}
-          {% if now_naive >= event_start and now_naive <= event_end %}
+          {% set active_start = event_start - timedelta(seconds=upcoming_buffer_sec) %}
+          {% set active_end = event_end + timedelta(seconds=past_buffer_sec) %}
+          {% if now_naive >= active_start and now_naive <= active_end %}
             {% if (event.summary | lower).find(cancel_kw) == -1 and (event.summary | regex_search('\\b' ~ door_kw ~ '\\b')) %}
               {% set valid_active = true %}
             {% endif %}
