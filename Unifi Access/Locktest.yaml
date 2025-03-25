@@ -66,10 +66,8 @@ blueprint:
       description: How frequently (in minutes) the automation should run.
       default: "/5"
       selector:
-        number:
-           min: 1
-           max: 60
-           unit_of_measurement: minutes
+        text:
+
 trigger:
   - platform: time_pattern
     minutes: !input check_frequency
