@@ -55,13 +55,7 @@ blueprint:
       selector:
         entity:
           domain: select
-    notify_devices:
-      name: Notification Devices
-      description: Select the mobile devices for notifications.
-      selector:
-        device:
-          integration: mobile_app
-          multiple: true          
+    notify_devices: "{{ input_notify_devices | map('device_attr', 'name') | list }}"
     check_frequency:
       name: Check Frequency (Minutes)
       description: How frequently (in minutes) the automation should run.
