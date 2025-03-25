@@ -79,6 +79,8 @@ action:
     state: "unlocked"
 
   # Process the event_list to determine if any active event is valid.
+  # IMPORTANT:  The actions below (select.select_option, notify.notify) will *only* run
+  #            if this condition (the template) evaluates to TRUE.
   - condition: template
     value_template: >
       {% set now_naive = now().replace(tzinfo=None) %}
@@ -111,5 +113,4 @@ action:
       message: "No valid active event detected (or all active events are canceled). Door is now locked."
     target:
       device_id: !input notify_device
-
 mode: single
