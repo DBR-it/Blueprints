@@ -70,7 +70,7 @@ blueprint:
 
 trigger:
   - platform: time_pattern
-    minutes: / !input check_frequency
+    minutes: !input check_frequency
 
 action:
   - service: calendar.get_events
