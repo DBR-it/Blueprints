@@ -82,7 +82,7 @@ action:
   - condition: template
     value_template: >
       {% set now_naive = now().replace(tzinfo=None) %}
-      {% set cancel_kw = (!input cancellation_keyword) | lower %}
+      {% set cancel_kw = input.cancellation_keyword | lower %}
       {% set door_kw = states(!input door_keyword_input) | lower %}
       {% set cal_id = !input calendar_entity %}
       {% set valid_active = false %}
@@ -113,3 +113,12 @@ action:
       device_id: !input notify_device
 
 mode: single
+```
+
+The key change is on this line:
+
+```yaml
+{% set cancel_kw = input.cancellation_keyword | lower %}
+```
+
+By changing from `(!input cancellation_keyword)` to `input.cancellation_keyword`, the template should now correctly access the value of the input variab
