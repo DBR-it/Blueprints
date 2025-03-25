@@ -82,29 +82,29 @@ action:
     entity_id: !input door_lock_entity
     state: "unlocked"
 
-  - condition: template
-    value_template: 
-{% set now_naive = now().replace(tzinfo=None) %}
-{% set upcoming_buffer_sec = (((!input upcoming_buffer).split(':')[0]|int) * 3600) + (((!input upcoming_buffer).split(':')[1]|int) * 60) + (((!input upcoming_buffer).split(':')[2]|int)) %}
-{% set past_buffer_sec = (((!input past_buffer).split(':')[0]|int) * 3600) + (((!input past_buffer).split(':')[1]|int) * 60) + (((!input past_buffer).split(':')[2]|int)) %}
-{% set cancel_kw = (!input cancellation_keyword) | lower %}
-{% set door_kw = states(!input door_keyword_input) | lower %}
-{% set cal_id = !input calendar_entity %}
-{% set valid_active = false %}
-{% if event_list and event_list[cal_id] and event_list[cal_id].events %}
-  {% for event in event_list[cal_id].events %}
-    {% set event_start = as_datetime(event.start).replace(tzinfo=None) %}
-    {% set event_end = as_datetime(event.end).replace(tzinfo=None) %}
-    {% set active_start = event_start - timedelta(seconds=upcoming_buffer_sec) %}
-    {% set active_end = event_end + timedelta(seconds=past_buffer_sec) %}
-    {% if now_naive >= active_start and now_naive <= active_end %}
-      {% if (event.summary | lower).find(cancel_kw) == -1 and (event.summary | regex_search('\\b' ~ door_kw ~ '\\b')) %}
-        {% set valid_active = true %}
-      {% endif %}
+- condition: template
+  value_template: >
+    {% set now_naive = now().replace(tzinfo=None) %}
+    {% set upcoming_buffer_sec = (((!input upcoming_buffer).split(':')[0]|int)*3600) + (((!input upcoming_buffer).split(':')[1]|int)*60) + (((!input upcoming_buffer).split(':')[2]|int)) %}
+    {% set past_buffer_sec = (((!input past_buffer).split(':')[0]|int)*3600) + (((!input past_buffer).split(':')[1]|int)*60) + (((!input past_buffer).split(':')[2]|int)) %}
+    {% set cancel_kw = (!input cancellation_keyword) | lower %}
+    {% set door_kw = states(!input door_keyword_input) | lower %}
+    {% set cal_id = !input calendar_entity %}
+    {% set valid_active = false %}
+    {% if event_list and event_list[cal_id] and event_list[cal_id].events %}
+      {% for event in event_list[cal_id].events %}
+        {% set event_start = as_datetime(event.start).replace(tzinfo=None) %}
+        {% set event_end = as_datetime(event.end).replace(tzinfo=None) %}
+        {% set active_start = event_start - timedelta(seconds=upcoming_buffer_sec) %}
+        {% set active_end = event_end + timedelta(seconds=past_buffer_sec) %}
+        {% if now_naive >= active_start and now_naive <= active_end %}
+          {% if (event.summary | lower).find(cancel_kw) == -1 and (event.summary | regex_search('\\b' ~ door_kw ~ '\\b')) %}
+            {% set valid_active = true %}
+          {% endif %}
+        {% endif %}
+      {% endfor %}
     {% endif %}
-  {% endfor %}
-{% endif %}
-{{ not valid_active }}
+    {{ not valid_active }}
 
   - service: select.select_option
     target:
