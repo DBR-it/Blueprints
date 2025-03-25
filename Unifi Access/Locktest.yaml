@@ -85,8 +85,10 @@ action:
 - condition: template
   value_template: >
     {% set now_naive = now().replace(tzinfo=None) %}
-    {% set upcoming_buffer_sec = (((!input upcoming_buffer).split(':')[0]|int)*3600) + (((!input upcoming_buffer).split(':')[1]|int)*60) + (((!input upcoming_buffer).split(':')[2]|int)) %}
-    {% set past_buffer_sec = (((!input past_buffer).split(':')[0]|int)*3600) + (((!input past_buffer).split(':')[1]|int)*60) + (((!input past_buffer).split(':')[2]|int)) %}
+    {% set up_buf = !input upcoming_buffer %}
+    {% set past_buf = !input past_buffer %}
+    {% set upcoming_buffer_sec = (up_buf.split(':')[0]|int)*3600 + (up_buf.split(':')[1]|int)*60 + (up_buf.split(':')[2]|int) %}
+    {% set past_buffer_sec = (past_buf.split(':')[0]|int)*3600 + (past_buf.split(':')[1]|int)*60 + (past_buf.split(':')[2]|int) %}
     {% set cancel_kw = (!input cancellation_keyword) | lower %}
     {% set door_kw = states(!input door_keyword_input) | lower %}
     {% set cal_id = !input calendar_entity %}
