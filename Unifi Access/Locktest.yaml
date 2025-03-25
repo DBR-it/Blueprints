@@ -65,7 +65,7 @@ blueprint:
       update_frequency:
         name: Update frequency
         description: Update frequency
-        default: 5
+        default: /5
         selector:
           text:
 
