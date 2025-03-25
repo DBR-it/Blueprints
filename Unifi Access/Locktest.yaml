@@ -1,5 +1,5 @@
 blueprint:
-  name: Lock Door on Canceled or No Active Event (8 Hour Window, Multiple Events)
+  name: Lock Door on Canceled or No Active Event (8 Hour Window)
   description: >
     Periodically retrieves a list of events for the next 8 hours using the calendar.get_events service.
     It iterates over the events to determine if any active event is valid—that is, the event is active
@@ -31,7 +31,7 @@ blueprint:
           domain: input_text
     door_lock_entity:
       name: Door Lock Entity
-      description: The door lock to check. This automation only runs if it's currently unlocked.
+      description: The door lock to check. This automation only runs if the door is currently unlocked.
       selector:
         entity:
           domain: lock
@@ -59,12 +59,13 @@ blueprint:
 
 trigger:
   - platform: time_pattern
-    minutes: "/{{ check_frequency }}"
+    minutes: "/{{ !input check_frequency }}"
 
 action:
+  # Retrieve events for the next 8 hours and store the response in "event_list"
   - service: calendar.get_events
     target:
-      entity_id: "{{ calendar_entity }}"
+      entity_id: !input calendar_entity
     data:
       duration:
         hours: 8
@@ -72,16 +73,18 @@ action:
         seconds: 0
     response_variable: event_list
 
+  # Only proceed if the door is currently unlocked.
   - condition: state
-    entity_id: "{{ door_lock_entity }}"
+    entity_id: !input door_lock_entity
     state: "unlocked"
 
+  # Process the event_list to determine if any active event is valid.
   - condition: template
     value_template: >
       {% set now_naive = now().replace(tzinfo=None) %}
-      {% set cancel_kw = cancellation_keyword | lower %}
-      {% set door_kw = states(door_keyword_input) | lower %}
-      {% set cal_id = calendar_entity %}
+      {% set cancel_kw = (!input cancellation_keyword) | lower %}
+      {% set door_kw = states(!input door_keyword_input) | lower %}
+      {% set cal_id = !input calendar_entity %}
       {% set valid_active = false %}
       {% if event_list and event_list[cal_id] and event_list[cal_id].events %}
         {% for event in event_list[cal_id].events %}
@@ -96,17 +99,17 @@ action:
       {% endif %}
       {{ not valid_active }}
 
+  # If no valid active event is found, lock the door.
   - service: select.select_option
     target:
-      entity_id: "{{ door_lock_rule_select }}"
+      entity_id: !input door_lock_rule_select
     data:
       option: "reset"
-
   - service: notify.notify
     data:
       title: "Lock Door: No Valid Active Event"
       message: "No valid active event detected (or all active events are canceled). Door is now locked."
     target:
-      device_id: "{{ notify_device }}"
+      device_id: !input notify_device
 
 mode: single
