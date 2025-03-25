@@ -62,16 +62,18 @@ blueprint:
         device:
           integration: mobile_app
     input:
-      update_frequency:
-        name: Update frequency
-        description: Update frequency
-        default: /5
+      check_frequency:
+        name: Check Frequency (Minutes)
+        description: How frequently (in minutes) the automation should run.
+        default: 5
         selector:
-          text:
-
+          number:
+            min: 1
+            max: 60
+            unit_of_measurement: minutes
 trigger:
   - platform: time_pattern
-    minutes: !input update_frequency
+    minutes: !input check_frequency
 
 action:
   - service: calendar.get_events
