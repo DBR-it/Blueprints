@@ -64,7 +64,7 @@ blueprint:
     check_frequency:
       name: Check Frequency (Minutes)
       description: How frequently (in minutes) the automation should run.
-      default: 5
+      default: "/5"
       selector:
         number:
            min: 1
