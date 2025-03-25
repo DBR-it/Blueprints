@@ -59,7 +59,7 @@ blueprint:
 
 trigger:
   - platform: time_pattern
-    minutes: "/{{ !input check_frequency }}"
+    minutes: "/{{ input.check_frequency }}"
 
 action:
   # Retrieve events for the next 8 hours and store the response in "event_list"
@@ -76,7 +76,6 @@ action:
   # Only proceed if the door is currently unlocked.
   - condition: state
     entity_id: !input door_lock_entity
-    state: "unlocked"
     state: "unlocked"
 
   # Process the event_list to determine if any active event is valid.
