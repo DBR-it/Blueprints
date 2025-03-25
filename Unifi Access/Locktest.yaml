@@ -77,14 +77,15 @@ action:
   - condition: state
     entity_id: !input door_lock_entity
     state: "unlocked"
+    state: "unlocked"
 
   # Process the event_list to determine if any active event is valid.
   - condition: template
     value_template: >
       {% set now_naive = now().replace(tzinfo=None) %}
       {% set cancel_kw = input.cancellation_keyword | lower %}
-      {% set door_kw = states(!input door_keyword_input) | lower %}
-      {% set cal_id = !input calendar_entity %}
+      {% set door_kw = states(input.door_keyword_input) | lower %}
+      {% set cal_id = input.calendar_entity %}
       {% set valid_active = false %}
       {% if event_list and event_list[cal_id] and event_list[cal_id].events %}
         {% for event in event_list[cal_id].events %}
@@ -113,12 +114,3 @@ action:
       device_id: !input notify_device
 
 mode: single
-```
-
-The key change is on this line:
-
-```yaml
-{% set cancel_kw = input.cancellation_keyword | lower %}
-```
-
-By changing from `(!input cancellation_keyword)` to `input.cancellation_keyword`, the template should now correctly access the value of the input variab
