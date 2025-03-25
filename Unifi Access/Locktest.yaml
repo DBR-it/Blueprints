@@ -31,7 +31,7 @@ blueprint:
           domain: input_text
     door_lock_entity:
       name: Door Lock Entity
-      description: The door lock to check. This automation only runs if the door is currently unlocked.
+      description: The door lock to check. This automation only runs if it's currently unlocked.
       selector:
         entity:
           domain: lock
@@ -62,7 +62,6 @@ trigger:
     minutes: "/{{ check_frequency }}"
 
 action:
-  # Retrieve events for the next 8 hours and store the response in "event_list"
   - service: calendar.get_events
     target:
       entity_id: "{{ calendar_entity }}"
@@ -73,15 +72,12 @@ action:
         seconds: 0
     response_variable: event_list
 
-  # Only proceed if the door is currently unlocked.
   - condition: state
     entity_id: "{{ door_lock_entity }}"
     state: "unlocked"
 
-  # Process the event_list to determine if any active event is valid.
   - condition: template
     value_template: >
-      {# Use the blueprint inputs directly as variables (they're already substituted) #}
       {% set now_naive = now().replace(tzinfo=None) %}
       {% set cancel_kw = cancellation_keyword | lower %}
       {% set door_kw = states(door_keyword_input) | lower %}
@@ -100,12 +96,12 @@ action:
       {% endif %}
       {{ not valid_active }}
 
-  # If no valid active event is found, lock the door.
   - service: select.select_option
     target:
       entity_id: "{{ door_lock_rule_select }}"
     data:
       option: "reset"
+
   - service: notify.notify
     data:
       title: "Lock Door: No Valid Active Event"
