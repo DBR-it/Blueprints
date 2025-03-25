@@ -55,12 +55,13 @@ blueprint:
       selector:
         entity:
           domain: select
-    notify_device:
-      name: Notification Device
-      description: Select the mobile device for notifications.
+    notify_devices:
+      name: Notification Devices
+      description: Select the mobile devices for notifications.
       selector:
         device:
           integration: mobile_app
+          multiple: true          
     check_frequency:
       name: Check Frequency (Minutes)
       description: How frequently (in minutes) the automation should run.
@@ -122,6 +123,12 @@ action:
       title: "Lock Door: No Valid Active Event"
       message: "No valid active event detected (or all active events are canceled). Door is now locked."
     target:
-      device_id: !input notify_device
+      device_id: >
+        {% set notify_devices = !input notify_devices | map('device_attr', 'name') | list %}
+        {% set result = namespace(r=[]) %}
+        {% for device in notify_devices %}
+          {% set result.r = result.r + ['notify.mobile_app_' ~ device | slugify] %}
+        {% endfor %}
+        {{ result.r }}
 
 mode: single
