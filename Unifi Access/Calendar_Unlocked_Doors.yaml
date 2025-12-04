@@ -75,16 +75,6 @@ action:
     title: "Door Unlocked"
     message: >
       {% set event_title = trigger.calendar_event.summary if trigger.calendar_event is defined else 'Unknown Event' %}
-      {% set start_time = as_timestamp(trigger.calendar_event.start) | timestamp_custom('%I:%M %p') if trigger.calendar_event is defined else 'Unknown Time' %}
-      {% set offset_minutes = unlock_offset_val.minutes | default(0) %}
-      {% set offset_hours = unlock_offset_val.hours | default(0) %}
-      {% set offset_str = '' %}
-      {% if offset_hours > 0 %}
-        {% set offset_str = offset_str ~ offset_hours ~ ' hours ' %}
-      {% endif %}
-      {% if offset_minutes > 0 %}
-        {% set offset_str = offset_str ~ offset_minutes ~ ' minutes ' %}
-      {% endif %}
-      Event "{{ event_title }}" starting at {{ start_time }}. Door unlocked {{ offset_str }}early.
+      Event "{{ event_title }}" starting soon. Door unlocked {{ unlock_offset_val }} before event.
 
 mode: single
