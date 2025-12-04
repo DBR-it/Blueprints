@@ -45,6 +45,7 @@ blueprint:
 
 variables:
   unlock_offset_val: !input unlock_offset
+  input_text_keyword_entity: !input input_text_keyword
 
 trigger:
   - platform: calendar
@@ -59,8 +60,8 @@ condition:
   - condition: template
     value_template: >
       {% set summary = trigger.calendar_event.summary | lower %}
-      {% set keyword = states(!input input_text_keyword) | lower %}
-      {{ summary.find(keyword) != -1 and 'canceled' not in summary }}
+      {% set keyword = states(input_text_keyword_entity) | lower %}
+      {{ keyword | length > 0 and keyword in summary and 'canceled' not in summary }}
 
 action:
   - service: select.select_option
