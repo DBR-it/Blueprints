@@ -69,12 +69,11 @@ action:
       entity_id: !input door_lock_rule_select
     data:
       option: "keep_unlock"
-  - service: notify.notify
-    data:
-      title: "Door Unlocked"
-      message: >
-        Event starting soon. Door unlocked {{ unlock_offset_val }} before event.
-    target:
-      device_id: !input notify_device
+  - domain: mobile_app
+    type: notify
+    device_id: !input notify_device
+    title: "Door Unlocked"
+    message: >
+      Event starting soon. Door unlocked {{ unlock_offset_val }} before event.
 
 mode: single
