@@ -74,6 +74,7 @@ action:
     device_id: !input notify_device
     title: "Door Unlocked"
     message: >
-      Event "{{ trigger.calendar_event.summary }}" starting soon. Door unlocked {{ unlock_offset_val }} before event.
+      {% set event_title = trigger.calendar_event.summary if trigger.calendar_event is defined else 'Unknown Event' %}
+      Event "{{ event_title }}" starting soon. Door unlocked {{ unlock_offset_val }} before event.
 
 mode: single
