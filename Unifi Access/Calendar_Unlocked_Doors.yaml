@@ -43,6 +43,9 @@ blueprint:
         device:
           integration: mobile_app
 
+variables:
+  unlock_offset_val: !input unlock_offset
+
 trigger:
   - platform: calendar
     event: start
@@ -69,7 +72,7 @@ action:
     data:
       title: "Door Unlocked"
       message: >
-        Event starting soon. Door unlocked {{ !input unlock_offset }} before event.
+        Event starting soon. Door unlocked {{ unlock_offset_val }} before event.
     target:
       device_id: !input notify_device
 
