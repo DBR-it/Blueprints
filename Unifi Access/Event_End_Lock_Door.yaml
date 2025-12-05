@@ -1,38 +1,41 @@
 blueprint:
-  name: Lock Door After Event with Overlap Check and Input Text Keyword
+  name: Lock Door via Reset Select (Overlap Check + Event Name)
   description: >
-    Locks a door a specified duration after an event ends if no overlapping event is running
-    and if the door keyword stored in the selected input_text entity is present.
-    The automation only runs if the door is currently unlocked (so it doesn't re-lock a locked door).
+    Triggers a 'Reset' on a select entity a specified duration after a calendar event ends.
+    Checks for overlaps (calendar must be 'off') and keyword matches.
+    Notification confirms the event ended and doors are locked.
   domain: automation
   input:
     calendar_entity:
       name: Calendar Entity
-      description: Select the calendar to monitor for events.
+      description: The calendar to monitor.
       selector:
         entity:
           domain: calendar
     lock_offset:
       name: Lock Offset
-      description: The duration after an event's end when the door should be locked.
+      description: How long to wait after the event ends before triggering the reset.
       default: "0:15:0"
       selector:
         duration: {}
     input_text_keyword:
-      name: Door Keyword Input Text
-      description: Select the input_text entity that stores the door keyword.
+      name: Keyword Input Text
+      description: >
+        Entity containing the keyword. 
+        If set, automation ONLY runs if the Event Title or Description contains this text.
+        If empty, runs for every event.
       selector:
         entity:
           domain: input_text
     door_lock_entity:
-      name: Door Lock Entity
-      description: The door lock to check. The automation will only lock the door if it's currently unlocked.
+      name: Door Lock Check
+      description: The door lock to check (automation only runs if this is currently unlocked).
       selector:
         entity:
           domain: lock
     door_lock_rule_select:
       name: Door Lock Rule Select Entity
-      description: The select entity that controls the door lock mode.
+      description: The select entity that triggers your locking logic (sets to 'reset').
       selector:
         entity:
           domain: select
@@ -50,22 +53,24 @@ trigger:
     offset: !input lock_offset
 
 condition:
+  # 1. Check if door is unlocked
   - condition: state
     entity_id: !input door_lock_entity
     state: "unlocked"
+
+  # 2. Check for Overlaps (Calendar must be 'off' / free)
+  # If this is 'on', the automation STOPS here. No message will be sent.
+  - condition: state
+    entity_id: !input calendar_entity
+    state: "off"
+
+  # 3. Keyword Check (Title or Description)
   - condition: template
     value_template: >
-      {# Retrieve upcoming event times from the selected calendar #}
-      {% set upcoming_start = state_attr(!input calendar_entity, 'start_time') %}
-      {% set upcoming_end = state_attr(!input calendar_entity, 'end_time') %}
-      {# The condition passes if there is no overlapping event:
-         either upcoming_start/end are undefined, or now is not between them. #}
-      {{ upcoming_start is none or upcoming_end is none or not (
-         now().replace(tzinfo=None) >= as_datetime(upcoming_start).replace(tzinfo=None) and
-         now().replace(tzinfo=None) <= as_datetime(upcoming_end).replace(tzinfo=None)
-      ) }}
-  - condition: template
-    value_template: "{{ states(!input input_text_keyword) != '' }}"
+      {% set keyword = states(!input input_text_keyword) %}
+      {% set title = trigger.calendar_event.summary | default('') %}
+      {% set desc = trigger.calendar_event.description | default('') %}
+      {{ keyword == '' or keyword in title or keyword in desc }}
 
 action:
   - service: select.select_option
@@ -73,11 +78,11 @@ action:
       entity_id: !input door_lock_rule_select
     data:
       option: "reset"
-  - service: notify.notify
-    data:
-      title: "Meeting Ended"
-      message: "No overlapping event. Door is now locked."
-    target:
-      device_id: !input notify_device
+  
+  - domain: mobile_app
+    type: notify
+    device_id: !input notify_device
+    title: "Doors Locked"
+    message: "The event '{{ trigger.calendar_event.summary }}' has finished and the doors have locked."
 
 mode: single
