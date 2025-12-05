@@ -1,5 +1,5 @@
 blueprint:
-  name: Lock Door via Reset Select (Fixed Syntax)
+  name: Lock Door via Reset Select (Syntax Fixed)
   description: >
     Triggers a 'Reset' on a select entity a specified duration after a calendar event ends.
     Checks for overlaps (calendar must be 'off') and keyword matches.
@@ -47,8 +47,7 @@ blueprint:
           integration: mobile_app
 
 # ----------------------------------------------------------------------
-# VARIABLES SECTION
-# This maps the YAML !input to a variable that Jinja templates can read
+# FIX: Map the input to a variable so the template can read it safely
 # ----------------------------------------------------------------------
 variables:
   keyword_entity_id: !input input_text_keyword
@@ -71,7 +70,7 @@ condition:
     state: "off"
 
   # 3. Keyword Check (Title or Description)
-  # Now using the 'keyword_entity_id' variable defined above
+  # Uses the 'keyword_entity_id' variable defined above, avoiding the syntax error.
   - condition: template
     value_template: >
       {% set keyword = states(keyword_entity_id) %}
