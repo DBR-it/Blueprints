@@ -1,5 +1,5 @@
 blueprint:
-  name: Lock Door via Reset Select (Overlap Check + Event Name)
+  name: Lock Door via Reset Select (Fixed Syntax)
   description: >
     Triggers a 'Reset' on a select entity a specified duration after a calendar event ends.
     Checks for overlaps (calendar must be 'off') and keyword matches.
@@ -46,6 +46,13 @@ blueprint:
         device:
           integration: mobile_app
 
+# ----------------------------------------------------------------------
+# VARIABLES SECTION
+# This maps the YAML !input to a variable that Jinja templates can read
+# ----------------------------------------------------------------------
+variables:
+  keyword_entity_id: !input input_text_keyword
+
 trigger:
   - platform: calendar
     event: end
@@ -59,15 +66,15 @@ condition:
     state: "unlocked"
 
   # 2. Check for Overlaps (Calendar must be 'off' / free)
-  # If this is 'on', the automation STOPS here. No message will be sent.
   - condition: state
     entity_id: !input calendar_entity
     state: "off"
 
   # 3. Keyword Check (Title or Description)
+  # Now using the 'keyword_entity_id' variable defined above
   - condition: template
     value_template: >
-      {% set keyword = states(!input input_text_keyword) %}
+      {% set keyword = states(keyword_entity_id) %}
       {% set title = trigger.calendar_event.summary | default('') %}
       {% set desc = trigger.calendar_event.description | default('') %}
       {{ keyword == '' or keyword in title or keyword in desc }}
