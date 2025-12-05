@@ -1,0 +1,131 @@
+blueprint:
+  name: Lock Door with Look-Ahead Buffer
+  description: >
+    Locks the door after an event ends, BUT checks if another event is starting soon.
+    
+    1. Event Ends -> Wait for 'Lock Offset'.
+    2. Check: Is the door unlocked?
+    3. Check: Is the calendar currently empty (no overlapping event)?
+    4. Check: Does the NEXT event start within the 'Look Ahead Buffer'? 
+       (If yes, keep door unlocked for the next group. If no, lock the door.)
+  domain: automation
+  input:
+    calendar_entity:
+      name: Calendar Entity
+      description: The calendar to monitor.
+      selector:
+        entity:
+          domain: calendar
+    lock_offset:
+      name: Lock Offset
+      description: >
+        How long to wait after the event ends before ATTEMPTING to lock.
+        (e.g., 5 minutes after the meeting ends).
+      default: "0:05:0"
+      selector:
+        duration: {}
+    pre_event_buffer:
+      name: Look Ahead Buffer
+      description: >
+        Do not lock if the NEXT event starts within this time frame.
+        (e.g., Set to 20 mins. If the next meeting starts in 15 mins, 
+        the door will stay unlocked).
+      default: "0:20:0"
+      selector:
+        duration: {}
+    input_text_keyword:
+      name: Keyword Input Text
+      description: >
+        Entity containing the keyword. 
+        If set, automation ONLY runs if the Event Title or Description contains this text.
+        If empty, runs for every event.
+      selector:
+        entity:
+          domain: input_text
+    door_lock_entity:
+      name: Door Lock Check
+      description: The door lock to check (automation only runs if this is currently unlocked).
+      selector:
+        entity:
+          domain: lock
+    door_lock_rule_select:
+      name: Door Lock Rule Select Entity
+      description: The select entity that triggers your locking logic (sets to 'reset').
+      selector:
+        entity:
+          domain: select
+    notify_device:
+      name: Notification Device
+      description: Select the mobile device to send notifications to.
+      selector:
+        device:
+          integration: mobile_app
+
+# ----------------------------------------------------------------------
+# VARIABLES: Map inputs so templates can read them safely
+# ----------------------------------------------------------------------
+variables:
+  calendar: !input calendar_entity
+  keyword_entity_id: !input input_text_keyword
+  buffer_input: !input pre_event_buffer
+
+trigger:
+  - platform: calendar
+    event: end
+    entity_id: !input calendar_entity
+    offset: !input lock_offset
+
+condition:
+  # 1. Check if door is unlocked
+  - condition: state
+    entity_id: !input door_lock_entity
+    state: "unlocked"
+
+  # 2. Check for IMMEDIATE Overlaps
+  # Is a meeting running right this second? (State must be 'off')
+  - condition: state
+    entity_id: !input calendar_entity
+    state: "off"
+
+  # 3. The "Look Ahead" Check
+  # Check if the NEXT event is too close.
+  - condition: template
+    value_template: >
+      {# Get the start time of the NEXT event on the calendar #}
+      {% set next_start_str = state_attr(calendar, 'start_time') %}
+      
+      {# If there is NO next event, it is safe to lock. Return True. #}
+      {% if next_start_str == None %}
+        true
+      {% else %}
+        {# Calculate time until next event #}
+        {% set next_start = as_datetime(next_start_str) %}
+        {% set buffer_delta = buffer_input | as_timedelta %}
+        
+        {# Only pass (Lock) if the time until next event is GREATER than buffer #}
+        {# If next event is in 10 mins, and buffer is 20 mins -> returns False (Don't Lock) #}
+        {{ (next_start - now()) > buffer_delta }}
+      {% endif %}
+
+  # 4. Keyword Check (Title or Description)
+  - condition: template
+    value_template: >
+      {% set keyword = states(keyword_entity_id) %}
+      {% set title = trigger.calendar_event.summary | default('') %}
+      {% set desc = trigger.calendar_event.description | default('') %}
+      {{ keyword == '' or keyword in title or keyword in desc }}
+
+action:
+  - service: select.select_option
+    target:
+      entity_id: !input door_lock_rule_select
+    data:
+      option: "reset"
+  
+  - domain: mobile_app
+    type: notify
+    device_id: !input notify_device
+    title: "Doors Locked"
+    message: "The event '{{ trigger.calendar_event.summary }}' has finished and the doors have locked."
+
+mode: single
