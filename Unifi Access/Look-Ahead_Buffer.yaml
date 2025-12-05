@@ -1,13 +1,11 @@
 blueprint:
-  name: Lock Door with Look-Ahead Buffer
+  name: Lock Door (Parallel + Look Ahead + Trim Fix)
   description: >
-    Locks the door after an event ends, BUT checks if another event is starting soon.
-    
-    1. Event Ends -> Wait for 'Lock Offset'.
-    2. Check: Is the door unlocked?
-    3. Check: Is the calendar currently empty (no overlapping event)?
-    4. Check: Does the NEXT event start within the 'Look Ahead Buffer'? 
-       (If yes, keep door unlocked for the next group. If no, lock the door.)
+    Locks the door after an event ends.
+    Features:
+    1. PARALLEL mode (won't miss overlapping events).
+    2. LOOK AHEAD (won't lock if next meeting starts soon).
+    3. TRIM FIX (ignores accidental spaces in your keyword).
   domain: automation
   input:
     calendar_entity:
@@ -20,7 +18,7 @@ blueprint:
       name: Lock Offset
       description: >
         How long to wait after the event ends before ATTEMPTING to lock.
-        (e.g., 5 minutes after the meeting ends).
+        (Recommended: 5 minutes)
       default: "0:05:0"
       selector:
         duration: {}
@@ -28,16 +26,15 @@ blueprint:
       name: Look Ahead Buffer
       description: >
         Do not lock if the NEXT event starts within this time frame.
-        (e.g., Set to 20 mins. If the next meeting starts in 15 mins, 
-        the door will stay unlocked).
+        (Recommended: 20 minutes)
       default: "0:20:0"
       selector:
         duration: {}
     input_text_keyword:
       name: Keyword Input Text
       description: >
-        Entity containing the keyword. 
-        If set, automation ONLY runs if the Event Title or Description contains this text.
+        Entity containing the keyword (e.g., "*").
+        The automation automatically removes accidental spaces from this input.
         If empty, runs for every event.
       selector:
         entity:
@@ -62,7 +59,7 @@ blueprint:
           integration: mobile_app
 
 # ----------------------------------------------------------------------
-# VARIABLES: Map inputs so templates can read them safely
+# VARIABLES
 # ----------------------------------------------------------------------
 variables:
   calendar: !input calendar_entity
@@ -81,38 +78,33 @@ condition:
     entity_id: !input door_lock_entity
     state: "unlocked"
 
-  # 2. Check for IMMEDIATE Overlaps
-  # Is a meeting running right this second? (State must be 'off')
+  # 2. Check for IMMEDIATE Overlaps (Calendar must be 'off')
   - condition: state
     entity_id: !input calendar_entity
     state: "off"
 
   # 3. The "Look Ahead" Check
-  # Check if the NEXT event is too close.
   - condition: template
     value_template: >
-      {# Get the start time of the NEXT event on the calendar #}
       {% set next_start_str = state_attr(calendar, 'start_time') %}
-      
-      {# If there is NO next event, it is safe to lock. Return True. #}
       {% if next_start_str == None %}
         true
       {% else %}
-        {# Calculate time until next event #}
         {% set next_start = as_datetime(next_start_str) %}
         {% set buffer_delta = buffer_input | as_timedelta %}
-        
-        {# Only pass (Lock) if the time until next event is GREATER than buffer #}
-        {# If next event is in 10 mins, and buffer is 20 mins -> returns False (Don't Lock) #}
         {{ (next_start - now()) > buffer_delta }}
       {% endif %}
 
-  # 4. Keyword Check (Title or Description)
+  # 4. Keyword Check (With TRIM Fix)
   - condition: template
     value_template: >
-      {% set keyword = states(keyword_entity_id) %}
+      {# Retrieve the keyword and strip invisible spaces #}
+      {% set keyword = states(keyword_entity_id) | trim %}
+      
       {% set title = trigger.calendar_event.summary | default('') %}
       {% set desc = trigger.calendar_event.description | default('') %}
+      
+      {# Check: If keyword is empty, OR if keyword is found in title/desc #}
       {{ keyword == '' or keyword in title or keyword in desc }}
 
 action:
@@ -128,4 +120,5 @@ action:
     title: "Doors Locked"
     message: "The event '{{ trigger.calendar_event.summary }}' has finished and the doors have locked."
 
-mode: single
+mode: parallel
+max: 10
