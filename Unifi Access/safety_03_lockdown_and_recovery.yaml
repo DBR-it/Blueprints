@@ -21,8 +21,8 @@ blueprint:
         entity:
     lockdown_trigger_value:
       name: Lockdown State Text
-      description: "The exact text that indicates a lockdown (e.g., Keep it locked)."
-      default: "Keep it locked"
+      description: "The exact text that indicates a lockdown (e.g., keep_lock)."
+      default: "keep_lock"
       selector:
         text: {}
     manual_reset_button:
