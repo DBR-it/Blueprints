@@ -23,7 +23,7 @@ blueprint:
         entity:
           domain: input_text
     unlock_offset:
-      name: Unlock Offset (Format: -HH:MM:SS)
+      name: "Unlock Offset (Format: -HH:MM:SS)"
       description: >
         Time BEFORE start to unlock. MUST start with a minus sign (-).
         Example: "-00:30:00" for 30 minutes.
