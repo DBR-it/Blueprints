@@ -22,7 +22,7 @@ blueprint:
           domain: lock
     door_lock_rule_select:
       name: Door Lock Rule Select Entity
-      description: The select entity that triggers your locking logic (sets to 'reset').
+      description: "The select entity that triggers your locking logic (sets to 'reset')."
       selector:
         entity:
           domain: select
@@ -31,6 +31,12 @@ blueprint:
       selector:
         device:
           integration: mobile_app
+
+# ----------------------------------------------------------------------
+# BUG FIX: Map the calendar input to a variable so the template can read it
+# ----------------------------------------------------------------------
+variables:
+  calendar_id: !input calendar_entity
 
 trigger:
   - platform: time_pattern
@@ -61,7 +67,8 @@ action:
       - conditions:
           - condition: template
             value_template: >
-              {% set events = scheduled_events[user_inputs['calendar_entity']]['events'] %}
+              {# Access the list using the variable 'calendar_id' defined at the top #}
+              {% set events = scheduled_events[calendar_id]['events'] %}
               
               {# Initialize a "valid_meeting_found" flag to False #}
               {% set ns = namespace(found=false) %}
@@ -98,5 +105,3 @@ action:
             device_id: !input notify_device
             title: "Security Sweeper"
             message: "No valid active events found (Calendar empty or all canceled). Door locked."
-            
-  # Note: If ns.found is True (a valid meeting exists), the Choose block skips, and the door stays unlocked.
