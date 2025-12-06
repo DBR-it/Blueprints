@@ -14,25 +14,25 @@ blueprint:
   input:
     shutdown_time:
       name: Shutdown Time (Night)
-      description: Time to lock doors and disable automation (e.g., 22:00).
+      description: "Time to lock doors and disable automation (e.g., 22:00)."
       default: "22:00:00"
       selector:
         time: {}
     startup_time:
       name: Startup Time (Morning)
-      description: Time to re-enable automation (e.g., 05:30).
+      description: "Time to re-enable automation (e.g., 05:30)."
       default: "05:30:00"
       selector:
         time: {}
     automation_unlock:
       name: Unlock Scheduler Automation
-      description: Select the 'Scheduler: Unlock Door' automation.
+      description: "Select the automation named 'Scheduler: Unlock Door'."
       selector:
         entity:
           domain: automation
     door_lock_rule_select:
       name: Door Lock Rule Entity
-      description: The select entity to force into 'reset' (Locked) mode.
+      description: "The select entity to force into 'reset' (Locked) mode."
       selector:
         entity:
           domain: select
