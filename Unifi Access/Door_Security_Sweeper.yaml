@@ -1,0 +1,88 @@
+blueprint:
+  name: Door Security Sweeper (Cancellations & Cleanup)
+  description: >
+    Runs periodically to ensure the door is not left unlocked by mistake.
+    
+    LOCKS IF:
+    1. The door is currently unlocked.
+    AND
+    2. The Calendar is EMPTY (no event).
+    OR
+    3. The Calendar has an event, but it contains "Canceled".
+    
+    NOTE: This will NOT unlock doors. It only locks them.
+  domain: automation
+  input:
+    calendar_entity:
+      name: Calendar Entity
+      selector:
+        entity:
+          domain: calendar
+    door_lock_entity:
+      name: Door Lock Entity
+      selector:
+        entity:
+          domain: lock
+    door_lock_rule_select:
+      name: Door Lock Rule Select Entity
+      description: The select entity that triggers your locking logic (sets to 'reset').
+      selector:
+        entity:
+          domain: select
+    notify_device:
+      name: Notification Device
+      selector:
+        device:
+          integration: mobile_app
+
+trigger:
+  - platform: time_pattern
+    minutes: "/15"  # Runs every 15 minutes (e.g., 1:00, 1:15, 1:30...)
+
+condition:
+  # 1. Only run if the door is actually UNLOCKED (Don't waste energy on locked doors)
+  - condition: state
+    entity_id: !input door_lock_entity
+    state: "unlocked"
+
+action:
+  - choose:
+      # SCENARIO A: No Event Running (Calendar is OFF)
+      # Someone deleted the event or the "End" trigger missed.
+      - conditions:
+          - condition: state
+            entity_id: !input calendar_entity
+            state: "off"
+        sequence:
+          - service: select.select_option
+            target:
+              entity_id: !input door_lock_rule_select
+            data:
+              option: "reset"
+          - domain: mobile_app
+            type: notify
+            device_id: !input notify_device
+            title: "Security Sweeper"
+            message: "Door was found unlocked with no active event. Door has been locked."
+
+      # SCENARIO B: Event is Running, but marked "Canceled"
+      - conditions:
+          - condition: state
+            entity_id: !input calendar_entity
+            state: "on"
+          - condition: template
+            value_template: >
+              {% set title = state_attr(trigger.entity_id, 'message') | default('') | lower %}
+              {% set desc = state_attr(trigger.entity_id, 'description') | default('') | lower %}
+              {{ 'canceled' in title or 'cancelled' in title or 'canceled' in desc or 'cancelled' in desc }}
+        sequence:
+          - service: select.select_option
+            target:
+              entity_id: !input door_lock_rule_select
+            data:
+              option: "reset"
+          - domain: mobile_app
+            type: notify
+            device_id: !input notify_device
+            title: "Event Canceled"
+            message: "Current event is marked canceled. Door has been locked."
