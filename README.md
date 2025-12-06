@@ -1,2 +1,2 @@
 # Home Assistant Blueprints 
-allow for easier automation setup
+Allow for easier automation setup
