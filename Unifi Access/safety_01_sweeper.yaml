@@ -1,16 +1,13 @@
 blueprint:
-  name: Door Security Sweeper (Cancellations & Cleanup)
+  name: "Safety: Periodic Sweep (Advanced Overlap Check)"
   description: >
-    Runs periodically to ensure the door is not left unlocked by mistake.
+    The "Janitor" for your locks. Runs every 15 minutes.
     
-    LOCKS IF:
-    1. The door is currently unlocked.
-    AND
-    2. The Calendar is EMPTY (no event).
-    OR
-    3. The Calendar has an event, but it contains "Canceled".
-    
-    NOTE: This will NOT unlock doors. It only locks them.
+    SMART LOGIC:
+    1. It fetches a LIST of all active events right now (handling overlaps).
+    2. It checks each event.
+    3. If it finds AT LEAST ONE valid event (not canceled), it does nothing (Door stays open).
+    4. If it finds ZERO valid events (Calendar is empty, or all active events are "Canceled"), it LOCKS the door.
   domain: automation
   input:
     calendar_entity:
@@ -37,22 +34,59 @@ blueprint:
 
 trigger:
   - platform: time_pattern
-    minutes: "/15"  # Runs every 15 minutes (e.g., 1:00, 1:15, 1:30...)
+    minutes: "/15"  # Runs at :00, :15, :30, :45
 
 condition:
-  # 1. Only run if the door is actually UNLOCKED (Don't waste energy on locked doors)
+  # Only run if door is UNLOCKED (Save resources)
   - condition: state
     entity_id: !input door_lock_entity
     state: "unlocked"
 
 action:
+  # STEP 1: Perform a "Deep Scan" of the calendar
+  - service: calendar.get_events
+    target:
+      entity_id: !input calendar_entity
+    data:
+      # Look at the next 1 minute to catch whatever is active right now
+      start_date_time: "{{ now() }}"
+      duration:
+        minutes: 1
+    response_variable: scheduled_events
+
+  # STEP 2: Analyze the list
   - choose:
-      # SCENARIO A: No Event Running (Calendar is OFF)
-      # Someone deleted the event or the "End" trigger missed.
+      # LOCK CONDITION:
+      # We check the list. If we cannot find ANY event that is "valid" (not canceled), we Lock.
       - conditions:
-          - condition: state
-            entity_id: !input calendar_entity
-            state: "off"
+          - condition: template
+            value_template: >
+              {% set events = scheduled_events[user_inputs['calendar_entity']]['events'] %}
+              
+              {# Initialize a "valid_meeting_found" flag to False #}
+              {% set ns = namespace(found=false) %}
+
+              {# Loop through every event found in the scan #}
+              {% for event in events %}
+                {# Check if event is actually active RIGHT NOW #}
+                {% set start = as_datetime(event.start) %}
+                {% set end = as_datetime(event.end) %}
+                {% if start <= now() < end %}
+                  
+                  {# Check for Cancellation Keywords #}
+                  {% set title = event.summary | lower %}
+                  {% set desc = event.description | lower | default('') %}
+                  
+                  {% if 'canceled' not in title and 'cancelled' not in title %}
+                     {# We found a REAL meeting! Set flag to True #}
+                     {% set ns.found = true %}
+                  {% endif %}
+                  
+                {% endif %}
+              {% endfor %}
+
+              {# The Condition passes (LOCK THE DOOR) only if found is still FALSE #}
+              {{ ns.found == false }}
         sequence:
           - service: select.select_option
             target:
@@ -63,26 +97,6 @@ action:
             type: notify
             device_id: !input notify_device
             title: "Security Sweeper"
-            message: "Door was found unlocked with no active event. Door has been locked."
-
-      # SCENARIO B: Event is Running, but marked "Canceled"
-      - conditions:
-          - condition: state
-            entity_id: !input calendar_entity
-            state: "on"
-          - condition: template
-            value_template: >
-              {% set title = state_attr(trigger.entity_id, 'message') | default('') | lower %}
-              {% set desc = state_attr(trigger.entity_id, 'description') | default('') | lower %}
-              {{ 'canceled' in title or 'cancelled' in title or 'canceled' in desc or 'cancelled' in desc }}
-        sequence:
-          - service: select.select_option
-            target:
-              entity_id: !input door_lock_rule_select
-            data:
-              option: "reset"
-          - domain: mobile_app
-            type: notify
-            device_id: !input notify_device
-            title: "Event Canceled"
-            message: "Current event is marked canceled. Door has been locked."
+            message: "No valid active events found (Calendar empty or all canceled). Door locked."
+            
+  # Note: If ns.found is True (a valid meeting exists), the Choose block skips, and the door stays unlocked.
