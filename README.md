@@ -1,2 +1,2 @@
-# Blueprints
-Home Assistant blueprints to create automation easier
+#Home Assistant Blueprints 
+allow for easier automation setup
