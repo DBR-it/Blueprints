@@ -1,7 +1,6 @@
 <p align="center">
   <img src="Unifi.png" alt="Your Image Alt Text" style="width: 100%; height: auto;">
 </p>
-
 # Unifi Access Door Control Suite
 
 ### ⚠️ DISCLAIMER: READ BEFORE USE
@@ -31,7 +30,7 @@ To use these blueprints, you **must** install the **Unifi Access Custom Integrat
 This suite of Home Assistant blueprints is designed to automate **Unifi Access** locks using **Google Calendar**. It transforms a simple schedule into a smart access system that handles:
 * **Smart Unlocking:** Opens doors before events start.
 * **Smart Locking:** Closes doors after events end (but waits if another event is starting soon).
-* **Safety Net:** Periodically checks for missed locks or canceled events.
+* **Safety Net:** Periodically checks for missed locks or canceled events using "Deep Scan" logic.
 * **Night Mode:** Completely disables unlocking schedules overnight for security.
 * **Emergency Lockdown:** Instantly overrides schedules and locks doors during an emergency.
 
@@ -43,9 +42,9 @@ This suite of Home Assistant blueprints is designed to automate **Unifi Access**
 | :--- | :--- | :--- |
 | `scheduler_01_unlock.yaml` | **Scheduler: Unlock Door** | **The Opener.** Unlocks the door before an event starts (e.g., 30 mins prior). Checks for "Canceled" keywords to prevent false unlocks. |
 | `scheduler_02_lock.yaml` | **Scheduler: Lock Door** | **The Closer.** Locks the door after an event ends. Uses a **Look-Ahead Buffer**—it will *not* lock if another meeting starts soon. |
-| `safety_01_sweeper.yaml` | **Safety: Periodic Sweep** | **The Janitor.** Runs every 15 minutes. Locks the door if it finds it unlocked with **no active event** or a **canceled event**. |
+| `safety_01_sweeper.yaml` | **Safety: Periodic Sweep** | **The Janitor.** Runs every 15 minutes. It scans *all* active calendar events. If it finds NO valid events (or only canceled ones), it locks the door. |
 | `safety_02_night_shutdown_morning_startup.yaml`| **Safety: Shutdown & Startup** | **The Night Manager.** At night (e.g., 10 PM), it locks doors and **turns off** the Unlock Scheduler. In the morning (e.g., 5:30 AM), it turns it back on. |
-| `safety_03_lockdown_and_recovery.yaml` | **Safety: Lockdown & Recovery** | **The Emergency Manager.** Disables all schedules and forces a hard lock when Unifi reports an emergency. Restores normal operation via a manual Reset Button. |
+| `safety_03_lockdown_and_recovery.yaml` | **Safety: Lockdown & Recovery** | **The Emergency Manager.** Disables all schedules and forces a hard lock when Unifi reports an emergency. Restores normal operation via a manual Reactivate Button. |
 
 ---
 
@@ -60,11 +59,11 @@ Used to filter which calendar events unlock the door.
 * **Value:** `*` (or your preferred keyword).
 * *Note: The blueprints automatically trim invisible spaces to prevent errors.*
 
-### 2. The Reset Button (Input Button)
+### 2. The Reactivate Button (Input Button)
 Used to tell the system "The Emergency is Over" after a lockdown.
 * **Type:** Button
-* **Name:** `System Reset - All Clear`
-* **Icon:** `mdi:restart-alert`
+* **Name:** `Schedule Reactivate`
+* **Icon:** `mdi:play-speed` (or `mdi:calendar-check`)
 
 ---
 
@@ -93,14 +92,15 @@ This prevents accidental unlocks during the night (e.g., if a calendar event is 
     * *Tip:* Set this time at least 30 minutes before your earliest possible event.
 
 ### 4. Configure Lockdown & Recovery (`safety_03_lockdown_and_recovery.yaml`)
-* **Unifi Sensor:** Select the binary sensor from Unifi Access that indicates a lockdown (e.g., `binary_sensor.unifi_lockdown`).
-* **Reset Button:** Select the `System Reset - All Clear` button you created in the prerequisites.
+* **Lockdown Trigger Entity:** Select the **Select Entity** for your door rule (e.g., `select.door_lock_rule`). *Do not select the sensor.*
+* **Lockdown State Text:** Enter the raw state text: `keep_lock`. (This is the code Unifi uses for "Keep it locked").
+* **Manual Reset Button:** Select the `Schedule Reactivate` button you created in the prerequisites.
 * **Automations to Manage:** Select **ALL** automations you want to disable during an emergency.
-    * *Recommended:* Select `Scheduler: Unlock Door`, `Scheduler: Lock Door`, and `Safety: Periodic Sweep`.
+    * *Recommended:* Select `Scheduler: Unlock Door` and `Scheduler: Lock Door`.
 
 ### 5. Configure the Security Sweeper (`safety_01_sweeper.yaml`)
 * **Frequency:** Runs every 15 minutes.
-* **Action:** If the door is Unlocked AND the Calendar is Empty -> **LOCK**.
+* **Action:** It performs a "Deep Scan" of all events. If the Calendar is Empty (or only contains "Canceled" events) -> **LOCK**.
 * *Why?* Home Assistant only polls Google Calendar every 15 minutes. If you cancel an event, this sweeper catches it.
 
 ---
