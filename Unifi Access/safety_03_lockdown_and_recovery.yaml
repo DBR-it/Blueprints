@@ -1,40 +1,38 @@
 blueprint:
-  name: "Safety: External Lockdown Monitor & Manual Reset"
+  name: "Safety: Emergency Lockdown & Recovery"
   description: >
-    Syncs Home Assistant with Unifi Access Lockdown.
+    Manages the full Emergency Cycle (Disable & Restore).
     
-    1. LOCKDOWN DETECTED:
-       - Trigger: Unifi Sensor goes 'on' (Lockdown Active).
-       - Action: DISABLES the selected automations (Unlocker, Locker, Sweeper, etc.).
-       - Action: Sends a critical notification.
+    1. EMERGENCY LOCKDOWN (Disable):
+       - Trigger: Unifi Sensor detects Lockdown.
+       - Action: Turns OFF the selected automations (Unlocker, Locker, etc).
+       - Action: Sends "Lockdown Active" alert.
        
-    2. MANUAL RESET (ALL CLEAR):
-       - Trigger: You press the 'System Reset' button (Helper).
-       - Action: RE-ENABLES the selected automations.
-       - Action: Sends a confirmation notification.
+    2. SYSTEM RECOVERY (Restore):
+       - Trigger: Manual press of 'Reset Button' (Helper).
+       - Action: Turns ON the selected automations.
+       - Action: Sends "System Restored" alert.
   domain: automation
   input:
     unifi_lockdown_sensor:
       name: Unifi Lockdown Sensor
       description: >
         The sensor from Unifi Access that turns 'on' during a lockdown.
-        (Usually a binary_sensor).
       selector:
         entity:
           domain: binary_sensor
     manual_reset_button:
       name: Manual Reset Button
       description: >
-        The Input Button (Helper) you press to restore the schedule.
-        (Create this in Settings -> Helpers -> Button).
+        The Helper Button used to signal "All Clear".
       selector:
         entity:
           domain: input_button
-    automations_to_disable:
-      name: Automations to Disable
+    automations_to_manage:
+      name: Automations to Manage
       description: >
-        Select ALL automations you want to turn OFF during a lockdown.
-        (e.g., Select your Unlock Scheduler, Lock Scheduler, and Sweeper).
+        Select ALL automations to Disable during emergency and Enable during recovery.
+        (e.g. Unlock Scheduler, Lock Scheduler, Sweeper).
       selector:
         entity:
           domain: automation
@@ -46,47 +44,47 @@ blueprint:
           integration: mobile_app
 
 trigger:
-  # Trigger 1: Unifi reports Lockdown
+  # Trigger 1: Emergency Starts
   - platform: state
     entity_id: !input unifi_lockdown_sensor
     to: "on"
     id: "lockdown_start"
 
-  # Trigger 2: Human presses the Reset Button
+  # Trigger 2: Manual Recovery
   - platform: state
     entity_id: !input manual_reset_button
     id: "manual_reset"
 
 action:
   - choose:
-      # SCENARIO A: LOCKDOWN DETECTED
+      # SCENARIO A: LOCKDOWN (DISABLE)
       - conditions:
           - condition: trigger
             id: "lockdown_start"
         sequence:
-          # 1. Kill the Scheduler (Stop future unlocks)
+          # 1. Kill the Schedulers
           - service: automation.turn_off
             target:
-              entity_id: !input automations_to_disable
+              entity_id: !input automations_to_manage
           # 2. Notify
           - domain: mobile_app
             type: notify
             device_id: !input notify_device
             title: "⚠️ LOCKDOWN DETECTED"
-            message: "Unifi reports Lockdown! Schedules have been DISABLED."
+            message: "Emergency Mode Active. All schedules DISABLED."
 
-      # SCENARIO B: MANUAL RESET
+      # SCENARIO B: RECOVERY (ENABLE)
       - conditions:
           - condition: trigger
             id: "manual_reset"
         sequence:
-          # 1. Revive the Scheduler
+          # 1. Revive the Schedulers
           - service: automation.turn_on
             target:
-              entity_id: !input automations_to_disable
+              entity_id: !input automations_to_manage
           # 2. Notify
           - domain: mobile_app
             type: notify
             device_id: !input notify_device
             title: "System Restored"
-            message: "Manual Reset confirmed. Schedules are back online."
+            message: "All Clear. Schedules have been RE-ENABLED."
