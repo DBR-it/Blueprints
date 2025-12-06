@@ -1,0 +1,91 @@
+blueprint:
+  name: "Safety: Night Shutdown & Morning Startup"
+  description: >
+    Manages the daily ON/OFF cycle for the building.
+    
+    1. SHUTDOWN (Night):
+       - At the set time (e.g. 10 PM), it LOCKS the door.
+       - It TURNS OFF the 'Unlock Scheduler' so the building is secure overnight.
+       
+    2. STARTUP (Morning):
+       - At the set time (e.g. 5:30 AM), it TURNS ON the 'Unlock Scheduler'.
+       - This ensures the system is ready to read the calendar for the day's events.
+  domain: automation
+  input:
+    shutdown_time:
+      name: Shutdown Time (Night)
+      description: Time to lock doors and disable automation (e.g., 22:00).
+      default: "22:00:00"
+      selector:
+        time: {}
+    startup_time:
+      name: Startup Time (Morning)
+      description: Time to re-enable automation (e.g., 05:30).
+      default: "05:30:00"
+      selector:
+        time: {}
+    automation_unlock:
+      name: Unlock Scheduler Automation
+      description: Select the 'Scheduler: Unlock Door' automation.
+      selector:
+        entity:
+          domain: automation
+    door_lock_rule_select:
+      name: Door Lock Rule Entity
+      description: The select entity to force into 'reset' (Locked) mode.
+      selector:
+        entity:
+          domain: select
+    notify_device:
+      name: Notification Device
+      selector:
+        device:
+          integration: mobile_app
+
+trigger:
+  - platform: time
+    at: !input shutdown_time
+    id: "shutdown"
+  - platform: time
+    at: !input startup_time
+    id: "startup"
+
+action:
+  - choose:
+      # SHUTDOWN SEQUENCE
+      - conditions:
+          - condition: trigger
+            id: "shutdown"
+        sequence:
+          # 1. Disable the Unlock Scheduler
+          - service: automation.turn_off
+            target:
+              entity_id: !input automation_unlock
+          # 2. Force the Lock
+          - service: select.select_option
+            target:
+              entity_id: !input door_lock_rule_select
+            data:
+              option: "reset"
+          # 3. Notify
+          - domain: mobile_app
+            type: notify
+            device_id: !input notify_device
+            title: "Building Shutdown"
+            message: "Night Shutdown Active. Schedule disabled. Doors locked."
+
+      # STARTUP SEQUENCE
+      - conditions:
+          - condition: trigger
+            id: "startup"
+        sequence:
+          # 1. Re-enable the Unlock Scheduler
+          - service: automation.turn_on
+            target:
+              entity_id: !input automation_unlock
+          # 2. Notify
+          - domain: mobile_app
+            type: notify
+            device_id: !input notify_device
+            title: "Building Startup"
+            message: "Morning Startup Complete. Schedule enabled for daily events."
