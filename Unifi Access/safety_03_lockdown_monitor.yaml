@@ -1,0 +1,92 @@
+blueprint:
+  name: "Safety: External Lockdown Monitor & Manual Reset"
+  description: >
+    Syncs Home Assistant with Unifi Access Lockdown.
+    
+    1. LOCKDOWN DETECTED:
+       - Trigger: Unifi Sensor goes 'on' (Lockdown Active).
+       - Action: DISABLES the selected automations (Unlocker, Locker, Sweeper, etc.).
+       - Action: Sends a critical notification.
+       
+    2. MANUAL RESET (ALL CLEAR):
+       - Trigger: You press the 'System Reset' button (Helper).
+       - Action: RE-ENABLES the selected automations.
+       - Action: Sends a confirmation notification.
+  domain: automation
+  input:
+    unifi_lockdown_sensor:
+      name: Unifi Lockdown Sensor
+      description: >
+        The sensor from Unifi Access that turns 'on' during a lockdown.
+        (Usually a binary_sensor).
+      selector:
+        entity:
+          domain: binary_sensor
+    manual_reset_button:
+      name: Manual Reset Button
+      description: >
+        The Input Button (Helper) you press to restore the schedule.
+        (Create this in Settings -> Helpers -> Button).
+      selector:
+        entity:
+          domain: input_button
+    automations_to_disable:
+      name: Automations to Disable
+      description: >
+        Select ALL automations you want to turn OFF during a lockdown.
+        (e.g., Select your Unlock Scheduler, Lock Scheduler, and Sweeper).
+      selector:
+        entity:
+          domain: automation
+          multiple: true
+    notify_device:
+      name: Notification Device
+      selector:
+        device:
+          integration: mobile_app
+
+trigger:
+  # Trigger 1: Unifi reports Lockdown
+  - platform: state
+    entity_id: !input unifi_lockdown_sensor
+    to: "on"
+    id: "lockdown_start"
+
+  # Trigger 2: Human presses the Reset Button
+  - platform: state
+    entity_id: !input manual_reset_button
+    id: "manual_reset"
+
+action:
+  - choose:
+      # SCENARIO A: LOCKDOWN DETECTED
+      - conditions:
+          - condition: trigger
+            id: "lockdown_start"
+        sequence:
+          # 1. Kill the Scheduler (Stop future unlocks)
+          - service: automation.turn_off
+            target:
+              entity_id: !input automations_to_disable
+          # 2. Notify
+          - domain: mobile_app
+            type: notify
+            device_id: !input notify_device
+            title: "⚠️ LOCKDOWN DETECTED"
+            message: "Unifi reports Lockdown! Schedules have been DISABLED."
+
+      # SCENARIO B: MANUAL RESET
+      - conditions:
+          - condition: trigger
+            id: "manual_reset"
+        sequence:
+          # 1. Revive the Scheduler
+          - service: automation.turn_on
+            target:
+              entity_id: !input automations_to_disable
+          # 2. Notify
+          - domain: mobile_app
+            type: notify
+            device_id: !input notify_device
+            title: "System Restored"
+            message: "Manual Reset confirmed. Schedules are back online."
