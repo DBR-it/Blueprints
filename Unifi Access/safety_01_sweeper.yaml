@@ -1,13 +1,13 @@
 blueprint:
-  name: "Safety: Periodic Sweep (Advanced Overlap Check)"
+  name: "Safety: Periodic Sweep (With Grace Period)"
   description: >
     The "Janitor" for your locks. Runs every 15 minutes.
     
     SMART LOGIC:
-    1. It fetches a LIST of all active events right now (handling overlaps).
-    2. It checks each event.
-    3. If it finds AT LEAST ONE valid event (not canceled), it does nothing (Door stays open).
-    4. If it finds ZERO valid events (Calendar is empty, or all active events are "Canceled"), it LOCKS the door.
+    1. Fetches a LIST of all recent events.
+    2. Checks if an event is active OR if we are still in the "Grace Period" after an event.
+    3. If yes, it does nothing (Door stays open).
+    4. If no valid events (and grace period has passed), it LOCKS the door.
   domain: automation
   input:
     calendar_entity:
@@ -22,7 +22,6 @@ blueprint:
           domain: lock
     door_lock_rule_select:
       name: Door Lock Rule Select Entity
-      description: "The select entity that triggers your locking logic (sets to 'reset')."
       selector:
         entity:
           domain: select
@@ -31,68 +30,70 @@ blueprint:
       selector:
         device:
           integration: mobile_app
+    # --- NEW INPUT ---
+    post_event_buffer:
+      name: Grace Period (Minutes)
+      description: "How many minutes to wait after a meeting ends before forcing a lock? Set this slightly HIGHER than your standard unlock offset."
+      default: 35
+      selector:
+        number:
+          min: 0
+          max: 120
+          unit_of_measurement: minutes
 
-# ----------------------------------------------------------------------
-# BUG FIX: Map the calendar input to a variable so the template can read it
-# ----------------------------------------------------------------------
 variables:
   calendar_id: !input calendar_entity
+  # Pass the input to a variable so the template can use it
+  buffer_minutes: !input post_event_buffer
 
 trigger:
   - platform: time_pattern
-    minutes: "/15"  # Runs at :00, :15, :30, :45
+    minutes: "/15"
 
 condition:
-  # Only run if door is UNLOCKED (Save resources)
   - condition: state
     entity_id: !input door_lock_entity
     state: "unlocked"
 
 action:
-  # STEP 1: Perform a "Deep Scan" of the calendar
   - service: calendar.get_events
     target:
       entity_id: !input calendar_entity
     data:
-      # Look at the next 1 minute to catch whatever is active right now
-      start_date_time: "{{ now() }}"
-      duration:
-        minutes: 1
+      # We look back slightly to catch events that just ended
+      start_date_time: "{{ now() - timedelta(hours=1) }}" 
+      end_date_time: "{{ now() + timedelta(minutes=5) }}"
     response_variable: scheduled_events
 
-  # STEP 2: Analyze the list
   - choose:
-      # LOCK CONDITION:
-      # We check the list. If we cannot find ANY event that is "valid" (not canceled), we Lock.
       - conditions:
           - condition: template
             value_template: >
-              {# Access the list using the variable 'calendar_id' defined at the top #}
               {% set events = scheduled_events[calendar_id]['events'] %}
-              
-              {# Initialize a "valid_meeting_found" flag to False #}
               {% set ns = namespace(found=false) %}
+              
+              {# Convert input variable to integer #}
+              {% set buffer = buffer_minutes | int %}
 
-              {# Loop through every event found in the scan #}
               {% for event in events %}
-                {# Check if event is actually active RIGHT NOW #}
                 {% set start = as_datetime(event.start) %}
                 {% set end = as_datetime(event.end) %}
-                {% if start <= now() < end %}
+                
+                {# CALCULATE THE BUFFERED END TIME #}
+                {% set end_with_buffer = end + timedelta(minutes=buffer) %}
+
+                {# Logic: Is it active now OR are we inside the buffer window? #}
+                {% if start <= now() <= end_with_buffer %}
                   
-                  {# Check for Cancellation Keywords #}
                   {% set title = event.summary | lower %}
-                  {% set desc = event.description | lower | default('') %}
-                  
                   {% if 'canceled' not in title and 'cancelled' not in title %}
-                     {# We found a REAL meeting! Set flag to True #}
                      {% set ns.found = true %}
                   {% endif %}
                   
                 {% endif %}
               {% endfor %}
-
-              {# The Condition passes (LOCK THE DOOR) only if found is still FALSE #}
+              
+              {# If found is FALSE, it means we are past the meeting AND past the buffer #}
               {{ ns.found == false }}
         sequence:
           - service: select.select_option
@@ -104,4 +105,4 @@ action:
             type: notify
             device_id: !input notify_device
             title: "Security Sweeper"
-            message: "No valid active events found (Calendar empty or all canceled). Door locked."
+            message: "Grace period ended. No active events. Locking door."
