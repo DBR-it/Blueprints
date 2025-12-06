@@ -1,13 +1,11 @@
 blueprint:
-  name: Unlock Door Before Event (Parallel + Trim + Cancel Check)
+  name: "Scheduler: Unlock Door"
   description: >
-    Unlocks a door a specified duration before an event starts.
+    Unlocks the door BEFORE an event starts.
     
-    SAFEGUARDS:
-    1. Checks for 'canceled' in the title (won't unlock).
-    2. Trims whitespace from keywords (fixes the space error).
-    3. Runs in PARALLEL mode to ensure no events are missed.
-    4. ONLY unlocks if the keyword matches (empty keyword = no unlock).
+    IMPORTANT:
+    The "Unlock Offset" must be a TEXT string starting with a negative sign.
+    Example: "-00:30:00" (30 minutes before).
   domain: automation
   input:
     calendar_entity:
@@ -19,17 +17,19 @@ blueprint:
     input_text_keyword:
       name: Door Keyword Input Text
       description: >
-        Select the input_text entity that stores the door keyword. 
-        NOTE: If this is empty, the door will NOT unlock (Security feature).
+        Select the input_text entity that stores the door keyword (e.g., *).
+        If this is empty, the door will NOT unlock (Security feature).
       selector:
         entity:
           domain: input_text
     unlock_offset:
-      name: Unlock Offset
-      description: The duration before an event's start when the door should be unlocked.
+      name: Unlock Offset (Format: -HH:MM:SS)
+      description: >
+        Time BEFORE start to unlock. MUST start with a minus sign (-).
+        Example: "-00:30:00" for 30 minutes.
       default: "-00:30:00"
       selector:
-        duration: {}
+        text: {}
     door_lock_entity:
       name: Door Lock Entity
       description: The door lock to check. The automation will only unlock if this door is currently locked.
